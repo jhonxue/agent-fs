@@ -13,6 +13,7 @@ import (
 
 	"github.com/geekjourneyx/agent-fs/pkg/apperr"
 	"github.com/geekjourneyx/agent-fs/pkg/cloud"
+	"github.com/geekjourneyx/agent-fs/pkg/config"
 	"github.com/geekjourneyx/agent-fs/pkg/output"
 	"github.com/geekjourneyx/agent-fs/pkg/provider"
 	"github.com/geekjourneyx/agent-fs/pkg/s3client"
@@ -106,6 +107,30 @@ var fsUrlCmd = &cobra.Command{
 	},
 }
 
+// parsePath parses a path string using ParseWithConfig for full URL support.
+// It uses config to validate and match provider by bucket+endpoint+ak+sk.
+// Falls back to ParseWithEndpoint if no config is available.
+func parsePath(raw string) (*uri.URI, error) {
+	// Try to load config for validation
+	cfg := config.Default()
+	// Try default config path if not yet loaded
+	if !cfg.HasProviders() {
+		_ = config.LoadFromDefault()
+	}
+
+	// Use ParseWithConfig to validate against config (if available)
+	parsed, err := uri.ParseWithConfig(raw, cfg)
+	if err != nil {
+		// Fall back to ParseWithEndpoint for simple paths
+		parsed, err = uri.ParseWithEndpoint(raw)
+		if err != nil {
+			// Final fallback to original Parse
+			return uri.Parse(raw)
+		}
+	}
+	return parsed, nil
+}
+
 func init() {
 	// Read flags
 	fsReadCmd.Flags().Int64VarP(&fsReadHead, "head", "n", 0, "Read first N lines")
@@ -132,7 +157,7 @@ func init() {
 }
 
 func runFsRead(path string) error {
-	parsed, err := uri.Parse(path)
+	parsed, err := parsePath(path)
 	if err != nil {
 		return apperr.New(`fs_read`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid path: %v`, err))
 	}
@@ -394,7 +419,7 @@ func countLines(content string) int {
 }
 
 func runFsLs(path string) error {
-	parsed, err := uri.Parse(path)
+	parsed, err := parsePath(path)
 	if err != nil {
 		return apperr.New(`fs_ls`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid path: %v`, err))
 	}
@@ -435,12 +460,12 @@ func runFsLs(path string) error {
 }
 
 func runFsCp(src, dst string) error {
-	srcParsed, err := uri.Parse(src)
+	srcParsed, err := parsePath(src)
 	if err != nil {
 		return apperr.New(`fs_cp`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid source path: %v`, err))
 	}
 
-	dstParsed, err := uri.Parse(dst)
+	dstParsed, err := parsePath(dst)
 	if err != nil {
 		return apperr.New(`fs_cp`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid destination path: %v`, err))
 	}
@@ -488,21 +513,9 @@ func runFsCp(src, dst string) error {
 		dstPath = dstParsed.Key
 	}
 
-	// If same provider, use Copy method
-	if srcParsed.Scheme == dstParsed.Scheme {
-		err := srcProvider.Copy(ctx, srcPath, dstPath)
-		if err != nil {
-			return apperr.Wrap(`fs_cp`, apperr.CodeInternal, `failed to copy file`, err)
-		}
-		result := map[string]interface{}{
-			"source":      src,
-			"destination": dst,
-			"success":     true,
-		}
-		return output.PrintSuccess("fs_cp", result)
-	}
-
-	// Different providers: read from source, write to destination
+	// Always use read-write method to ensure proper permission control.
+	// Even if scheme+bucket+endpoint are the same, they may use different AK/SK credentials,
+	// and CopyObject would not respect the separate permission boundaries.
 	rc, err := srcProvider.Read(ctx, srcPath)
 	if err != nil {
 		return apperr.Wrap(`fs_cp`, apperr.CodeNotFound, `failed to read source file`, err)
@@ -526,7 +539,7 @@ func runFsCp(src, dst string) error {
 
 
 func runFsInfo(path string) error {
-	parsed, err := uri.Parse(path)
+	parsed, err := parsePath(path)
 	if err != nil {
 		return apperr.New(`fs_info`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid path: %v`, err))
 	}
@@ -597,7 +610,7 @@ func runFsProviders() error {
 }
 
 func runFsURL(pathArg string) error {
-	parsed, err := uri.Parse(pathArg)
+	parsed, err := parsePath(pathArg)
 	if err != nil {
 		return apperr.New(`fs_url`, apperr.CodeInvalidArg, fmt.Sprintf(`invalid path: %v`, err))
 	}

@@ -377,10 +377,20 @@ git push origin vx.x.x
 - `oss` - 阿里云 OSS
 - `cephfs` - CephFS 分布式文件系统
 
+**完整 HTTP/HTTPS URL 支持:**
+- VHost 风格: `https://bucket.s3.amazonaws.com/key`
+- Path 风格: `https://s3.amazonaws.com/bucket/key`
+- 带端口: `http://localhost:9000/bucket/key`
+- 自动检测: 支持 S3、R2、OSS、COS、MinIO
+
+**配置文件支持:**
+支持通过 `~/.afs.yaml` 配置文件定义 provider，URL 将自动匹配配置中的凭证。
+
 ```bash
 # 读取文件内容
 afs fs read <path>                    # 读取本地文件
 afs fs read s3://bucket/key           # 读取云存储文件
+afs fs read https://bucket.s3.amazonaws.com/key  # 使用完整 URL
 afs fs read <path> --head N           # 读取开头 N 行
 afs fs read <path> --tail N           # 读取末尾 N 行
 afs fs read <path> --bytes N          # 读取前 N 字节

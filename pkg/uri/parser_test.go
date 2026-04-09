@@ -279,3 +279,283 @@ func TestURI_DirName(t *testing.T) {
 		})
 	}
 }
+
+func TestParseWithEndpoint(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantURI *URI
+		wantErr bool
+	}{
+		// VHost style URLs
+		{
+			name: "S3 VHost style",
+			raw:  "https://bucket.s3.amazonaws.com/key",
+			wantURI: &URI{
+				Scheme:  "s3",
+				Host:    "bucket.s3.amazonaws.com",
+				Port:    0,
+				Bucket:  "bucket",
+				Key:     "key",
+				IsVHost: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "R2 VHost style",
+			raw:  "https://mybucket.r2.cloudflarestorage.com/a/b.txt",
+			wantURI: &URI{
+				Scheme:  "r2",
+				Host:    "mybucket.r2.cloudflarestorage.com",
+				Port:    0,
+				Bucket:  "mybucket",
+				Key:     "a/b.txt",
+				IsVHost: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "OSS VHost style",
+			raw:  "https://mybucket.oss-cn-hangzhou.aliyuncs.com/data.txt",
+			wantURI: &URI{
+				Scheme:  "oss",
+				Host:    "mybucket.oss-cn-hangzhou.aliyuncs.com",
+				Port:    0,
+				Bucket:  "mybucket",
+				Key:     "data.txt",
+				IsVHost: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "COS VHost style",
+			raw:  "https://mybucket.cos.ap-guangzhou.myqcloud.com/file.txt",
+			wantURI: &URI{
+				Scheme:  "cos",
+				Host:    "mybucket.cos.ap-guangzhou.myqcloud.com",
+				Port:    0,
+				Bucket:  "mybucket",
+				Key:     "file.txt",
+				IsVHost: true,
+			},
+			wantErr: false,
+		},
+		// Path style URLs
+		{
+			name: "S3 Path style",
+			raw:  "https://s3.amazonaws.com/bucket/key",
+			wantURI: &URI{
+				Scheme:  "s3",
+				Host:    "s3.amazonaws.com",
+				Port:    0,
+				Bucket:  "bucket",
+				Key:     "key",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "COS Path style",
+			raw:  "https://cos.ap-guangzhou.myqcloud.com/mybucket/file.txt",
+			wantURI: &URI{
+				Scheme:  "cos",
+				Host:    "cos.ap-guangzhou.myqcloud.com",
+				Port:    0,
+				Bucket:  "mybucket",
+				Key:     "file.txt",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+		// With port
+		{
+			name: "MinIO with port",
+			raw:  "http://localhost:9000/bucket/key",
+			wantURI: &URI{
+				Scheme:  "minio",
+				Host:    "localhost",
+				Port:    9000,
+				Bucket:  "bucket",
+				Key:     "key",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "IP address with port",
+			raw:  "https://192.168.1.100:9000/bucket/key",
+			wantURI: &URI{
+				Scheme:  "minio",
+				Host:    "192.168.1.100",
+				Port:    9000,
+				Bucket:  "bucket",
+				Key:     "key",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+		// Legacy format (should work with original Parse)
+		{
+			name: "Legacy S3 format",
+			raw:  "s3://bucket/key",
+			wantURI: &URI{
+				Scheme:  "s3",
+				Host:    "",
+				Port:    0,
+				Bucket:  "bucket",
+				Key:     "key",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+		// Local path (falls back to Parse)
+		{
+			name: "Local path fallback",
+			raw:  "/tmp/test.txt",
+			wantURI: &URI{
+				Scheme:  "file",
+				Host:    "",
+				Port:    0,
+				Bucket:  "",
+				Key:     "",
+				Path:    "/tmp/test.txt",
+				IsVHost: false,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseWithEndpoint(tt.raw)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseWithEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if got.Scheme != tt.wantURI.Scheme {
+					t.Errorf("Scheme = %v, want %v", got.Scheme, tt.wantURI.Scheme)
+				}
+				if got.Host != tt.wantURI.Host {
+					t.Errorf("Host = %v, want %v", got.Host, tt.wantURI.Host)
+				}
+				if got.Port != tt.wantURI.Port {
+					t.Errorf("Port = %v, want %v", got.Port, tt.wantURI.Port)
+				}
+				if got.Bucket != tt.wantURI.Bucket {
+					t.Errorf("Bucket = %v, want %v", got.Bucket, tt.wantURI.Bucket)
+				}
+				if got.Key != tt.wantURI.Key {
+					t.Errorf("Key = %v, want %v", got.Key, tt.wantURI.Key)
+				}
+				if got.IsVHost != tt.wantURI.IsVHost {
+					t.Errorf("IsVHost = %v, want %v", got.IsVHost, tt.wantURI.IsVHost)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectSchemeFromHost(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want string
+	}{
+		// S3: exact match
+		{"AWS S3 exact", "s3.amazonaws.com", "s3"},
+		// S3: bucket.variant.s3.amazonaws.com
+		{"AWS S3 bucket", "mybucket.s3.amazonaws.com", "s3"},
+		// AWS China requires exact .amazonaws.com.cn suffix
+		{"AWS China", "s3.cn-north-1.amazonaws.com.cn", "s3"},
+		// R2
+		{"Cloudflare R2", "account.r2.cloudflarestorage.com", "r2"},
+		{"R2 with bucket", "mybucket.r2.cloudflarestorage.com", "r2"},
+		// OSS
+		{"Aliyun OSS", "bucket.oss-cn-hangzhou.aliyuncs.com", "oss"},
+		// COS
+		{"Tencent COS", "bucket.cos.ap-guangzhou.myqcloud.com", "cos"},
+		// Unknown domains default to minio
+		{"Unknown domain", "my-custom-service.com", "minio"},
+		{"localhost", "localhost", "minio"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectSchemeFromHost(tt.host)
+			if got != tt.want {
+				t.Errorf("detectSchemeFromHost(%q) = %q, want %q", tt.host, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsVHostStyle(t *testing.T) {
+	tests := []struct {
+		name   string
+		host   string
+		scheme string
+		want   bool
+	}{
+		{"S3 VHost", "bucket.s3.amazonaws.com", "s3", true},
+		{"R2 VHost", "bucket.r2.cloudflarestorage.com", "r2", true},
+		{"OSS VHost", "bucket.oss-cn-hangzhou.aliyuncs.com", "oss", true},
+		{"COS VHost", "bucket.cos.ap-guangzhou.myqcloud.com", "cos", true},
+		{"MinIO VHost", "bucket.minio.example.com", "minio", true},
+		{"Path style S3", "s3.amazonaws.com", "s3", false},
+		{"Path style MinIO with port", "localhost:9000", "minio", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isVHostStyle(tt.host, tt.scheme)
+			if got != tt.want {
+				t.Errorf("isVHostStyle(%q, %q) = %v, want %v", tt.host, tt.scheme, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractBucketFromHost(t *testing.T) {
+	tests := []struct {
+		name   string
+		host   string
+		scheme string
+		want   string
+	}{
+		{"S3 VHost", "mybucket.s3.amazonaws.com", "s3", "mybucket"},
+		{"R2 VHost", "mybucket.r2.cloudflarestorage.com", "r2", "mybucket"},
+		{"OSS VHost", "mybucket.oss-cn-hangzhou.aliyuncs.com", "oss", "mybucket"},
+		{"COS VHost", "mybucket.cos.ap-guangzhou.myqcloud.com", "cos", "mybucket"},
+		{"MinIO VHost", "mybucket.minio.example.com", "minio", "mybucket"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractBucketFromHost(tt.host, tt.scheme)
+			if got != tt.want {
+				t.Errorf("extractBucketFromHost(%q, %q) = %q, want %q", tt.host, tt.scheme, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsIPAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want bool
+	}{
+		{"IPv4", "192.168.1.1", true},
+		{"IPv4 localhost", "127.0.0.1", true},
+		{"IPv6", "::1", true},
+		{"IPv6 full", "2001:db8::1", true},
+		{"Domain", "example.com", false},
+		{"Subdomain", "bucket.s3.amazonaws.com", false},
+		{"Empty", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isIPAddress(tt.host)
+			if got != tt.want {
+				t.Errorf("isIPAddress(%q) = %v, want %v", tt.host, got, tt.want)
+			}
+		})
+	}
+}
