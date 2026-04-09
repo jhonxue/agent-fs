@@ -75,10 +75,10 @@ afs fs url s3://bucket/path --public        # 公共 URL
 
 ### 阶段 3: 更新文档
 
-- [ ] 更新 `README.md` 移除 local/cloud 相关示例
-- [ ] 更新 `prd.md` 移除 local/cloud 功能描述
-- [ ] 更新 `CLAUDE.md` 移除 local/cloud 测试命令
-- [ ] 检查任何其他 Markdown 文件的引用
+- [x] 更新 `README.md` 移除 local/cloud 相关示例
+- [x] 更新 `prd.md` 移除 local/cloud 功能描述
+- [x] 更新 `CLAUDE.md` 移除 local/cloud 测试命令
+- [x] 检查任何其他 Markdown 文件的引用
 
 ### 阶段 4: 验证
 

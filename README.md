@@ -74,12 +74,14 @@ afs fs --help
 #### 第一个命令
 
 ```bash
-# 获取文件信息（支持本地和云存储 URI）
+# 获取文件信息（支持本地、CephFS 和云存储 URI）
 afs fs info s3://bucket/file.json
 afs fs info /path/to/file.json
 
 # 读取文件（支持 --head, --tail, --bytes 切片读取）
 afs fs read /var/log/app.log --tail 50
+# 读取 CephFS 文件示例
+afs fs read cephfs:///path/to/file.txt
 
 # 列出目录/前缀下的文件
 afs fs ls s3://bucket/prefix/
@@ -131,7 +133,15 @@ sudo mv afs /usr/local/bin/
 ```bash
 git clone https://github.com/geekjourneyx/agent-fs.git
 cd agent-fs
+# 标准构建
 go build -o afs .
+
+# 可选：启用 CephFS 支持（需安装 libcephfs 且启用 cgo）
+# Debian/Ubuntu: sudo apt-get install -y ceph libcephfs2 libcephfs-dev
+# CentOS/RHEL:   sudo yum install -y ceph ceph-devel
+# macOS (brew):  brew install ceph
+# 然后使用 cephfs,cgo 构建标签：
+go build -tags "cephfs cgo" -o afs .
 ```
 
 #### 方式四：作为 Skill 集成
@@ -283,10 +293,10 @@ afs fs ls remote/path/ --limit 50
 
 ```bash
 # 生成带签名的 URL（默认 15 分钟有效期）
-afs fs remote/file.txt
+afs fs url remote/file.txt
 
 # 自定义过期时间（秒）
-afs fs remote/file.txt --expires 3600
+afs fs url remote/file.txt --expires 3600
 ```
 
 - **特点**：带签名认证，有过期时间
@@ -297,7 +307,7 @@ afs fs remote/file.txt --expires 3600
 
 ```bash
 # 生成公共访问 URL
-afs fs remote/public.jpg --public
+afs fs url remote/public.jpg --public
 ```
 
 - **特点**：无需认证，永久可访问（直到文件删除）
@@ -305,6 +315,8 @@ afs fs remote/public.jpg --public
 - **适用场景**：公开的网站资源、公共下载文件
 
 > **⚠️ 安全提示**：使用 `--public` 时会显示安全警告。只有确实需要公开访问的文件才使用此选项。
+
+> **注**：CephFS 等本地/分布式文件系统不支持 URL 生成，仅对象存储（S3 兼容）支持。
 
 ---
 
@@ -358,15 +370,17 @@ afs config get s3.endpoint
 | AWS S3 | `s3` | `https://s3.amazonaws.com` | 亚马逊 S3 |
 | Cloudflare R2 | `r2` | 自动生成（配置 account_id） | Cloudflare R2 |
 | MinIO | `minio` | `http://localhost:9000` | 自建对象存储 |
-| 阿里云 OSS | `alioss` | `https://oss-cn-hangzhou.aliyuncs.com` | 阿里云对象存储 |
-| 腾讯云 COS | `txcos` | `https://cos.ap-guangzhou.myqcloud.com` | 腾讯云对象存储 |
+| 阿里云 OSS | `oss` | `https://oss-cn-hangzhou.aliyuncs.com` | 阿里云对象存储 |
+| 腾讯云 COS | `cos` | `https://cos.ap-guangzhou.myqcloud.com` | 腾讯云对象存储 |
 | Backblaze B2 | `b2` | `https://s3.us-west-004.backblazeb2.com` | B2 S3 兼容模式 |
 | Wasabi | `wasabi` | `https://s3.wasabisys.com` | Wasabi 热云存储 |
+| CephFS | `cephfs` | `N/A` | 分布式文件系统路径 |
 
 查看完整列表：
 
 ```bash
 afs fs providers
+# 输出应包含 cephfs 提供商（当已编译并注册 CephFS provider 时）
 ```
 
 #### Cloudflare R2 配置示例
@@ -434,6 +448,23 @@ export AFS_S3_ACCESS_KEY_ID=your-access-key
 export AFS_S3_SECRET_ACCESS_KEY=your-secret-key
 ```
 
+#### CephFS 构建与运行（可选）
+
+CephFS 为可选特性，启用条件与依赖如下：
+
+- 构建标签：使用 `-tags "cephfs cgo"`
+- 系统依赖：`libcephfs`（及开发头文件）
+  - Debian/Ubuntu: `sudo apt-get install -y ceph libcephfs2 libcephfs-dev`
+  - CentOS/RHEL:   `sudo yum install -y ceph ceph-devel`
+  - macOS:         `brew install ceph`
+- 运行依赖：
+  - 配置文件：`/etc/ceph/ceph.conf`（或设置环境变量 `CEPHFS_CONF_PATH`）
+  - 凭证：`CEPHFS_KEYRING_PATH` 或 `CEPHFS_SECRET`
+  - 替代配置：如未提供 conf，可通过 `CEPHFS_MON_HOSTS` 指定 MON 列表（逗号分隔），并设置 `CEPHFS_AUTH_ID`（默认 `admin`）
+- 注意事项：
+  - CephFS 不支持 URL 生成（`afs fs url`），该能力仅适用于对象存储（S3 兼容）
+  - tail 大文件时建议在当前版本优先使用本地文件系统路径
+
 ---
 
 ### 命令参考
@@ -456,7 +487,7 @@ export AFS_S3_SECRET_ACCESS_KEY=your-secret-key
 | `afs fs cp <local> <remote>` | 上传文件 | `afs fs cp file.txt remote/` |
 | `afs fs cp <remote> <local>` | 下载文件 | `afs fs cp remote/file.txt ./` |
 | `afs fs ls [prefix]` | 列出对象 | `afs fs ls remote/path/ --limit 50` |
-| `afs fs <remote_key>` | 生成 Presigned URL | `afs fs remote/file.txt --expires 3600` |
+| `afs fs url <remote_key>` | 生成 Presigned URL | `afs fs url remote/file.txt --expires 3600` |
 | `afs fs url <remote_key> --public` | 生成公共 URL | `afs fs url remote/image.jpg --public` |
 | `afs fs providers` | 列出支持的提供商 | `afs fs providers` |
 
@@ -831,10 +862,10 @@ afs fs ls remote/path/ --limit 50
 
 ```bash
 # Generate signed URL (default 15 min expiration)
-afs fs remote/file.txt
+afs fs url remote/file.txt
 
 # Custom expiration (seconds)
-afs fs remote/file.txt --expires 3600
+afs fs url remote/file.txt --expires 3600
 ```
 
 - **Features**: Authenticated with signature, expires after set time
@@ -845,7 +876,7 @@ afs fs remote/file.txt --expires 3600
 
 ```bash
 # Generate public access URL
-afs fs remote/public.jpg --public
+afs fs url remote/public.jpg --public
 ```
 
 - **Features**: No authentication, permanently accessible (until deleted)
@@ -976,7 +1007,7 @@ For public access URLs:
 | `afs fs cp <local> <remote>` | Upload file | `afs fs cp file.txt remote/` |
 | `afs fs cp <remote> <local>` | Download file | `afs fs cp remote/file.txt ./` |
 | `afs fs ls [prefix]` | List objects | `afs fs ls remote/path/ --limit 50` |
-| `afs fs <remote_key>` | Generate Presigned URL | `afs fs remote/file.txt --expires 3600` |
+| `afs fs url <remote_key>` | Generate Presigned URL | `afs fs url remote/file.txt --expires 3600` |
 | `afs fs url <remote_key> --public` | Generate public URL | `afs fs url remote/image.jpg --public` |
 | `afs fs providers` | List supported providers | `afs fs providers` |
 

@@ -354,10 +354,11 @@ git push origin vx.x.x
 | `s3` | AWS S3 | `https://s3.amazonaws.com` |
 | `r2` | Cloudflare R2 | 自动生成（配置 account_id） |
 | `minio` | MinIO | `http://localhost:9000` |
-| `alioss` | 阿里云 OSS | `https://oss-cn-hangzhou.aliyuncs.com` |
-| `txcos` | 腾讯云 COS | `https://cos.ap-guangzhou.myqcloud.com` |
+| `oss` | 阿里云 OSS | `https://oss-cn-hangzhou.aliyuncs.com` |
+| `cos` | 腾讯云 COS | `https://cos.ap-guangzhou.myqcloud.com` |
 | `b2` | Backblaze B2 | `https://s3.us-west-004.backblazeb2.com` |
 | `wasabi` | Wasabi | `https://s3.wasabisys.com` |
+| `cephfs` | CephFS | N/A（分布式文件系统路径） |
 
 ---
 
@@ -374,6 +375,7 @@ git push origin vx.x.x
 - `minio` - MinIO
 - `cos` - 腾讯云 COS
 - `oss` - 阿里云 OSS
+- `cephfs` - CephFS 分布式文件系统
 
 ```bash
 # 读取文件内容

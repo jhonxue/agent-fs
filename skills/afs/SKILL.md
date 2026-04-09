@@ -16,48 +16,62 @@ curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/
 
 **Basic usage**:
 ```bash
-# Get file info
-afs local info /path/to/file
+# Get file info (local or cloud via URI)
+afs fs info file:///path/to/file
 
 # Read file with slicing (Token-aware)
-afs local read /path/to/log --tail 50
+afs fs read file:///path/to/log --tail 50
 
 # Create and extract archives
-afs local zip /data --out backup.zip
-afs local unzip backup.zip --dest /restore
+afs fs zip file:///data --out backup.zip
+afs fs unzip file://backup.zip --dest /restore
 
-# Cloud operations
-afs cloud upload file.txt remote/path/
-afs cloud list remote/ --limit 20
-afs cloud url remote/file.txt --expires 3600  # Generate access URL
-afs cloud providers  # List supported providers
+# Cloud operations (use s3://, r2://, oss:// URI schemes)
+afs fs cp ./file.txt s3://bucket/remote/path/
+afs fs ls s3://bucket/remote/ --limit 20
+afs fs url s3://bucket/remote/file.txt --expires 3600  # Generate access URL
+afs fs providers  # List supported providers
 ```
 
 ## Commands
 
+All operations use the unified `afs fs` command with URI schemes to distinguish local/cloud storage:
+- `file://` - Local filesystem (default)
+- `s3://`, `r2://`, `oss://`, `cos://`, `cephfs://` - Cloud storage providers
+
 | Command | Purpose |
 |---------|---------|
-| `afs local zip` | Create zip archive from file/directory |
-| `afs local unzip` | Extract zip archive to destination |
-| `afs local info` | Get file/directory metadata |
-| `afs local read` | Read file with slicing options |
-| `afs cloud upload` | Upload to S3-compatible storage |
-| `afs cloud download` | Download from cloud storage |
-| `afs cloud list` | List objects in cloud storage |
-| `afs cloud url` | Generate access URL (Presigned URL or Public URL) |
-| `afs cloud providers` | List supported cloud storage providers |
+| `afs fs info` | Get file/directory metadata (local or cloud) |
+| `afs fs read` | Read file with slicing options |
+| `afs fs zip` | Create zip archive from file/directory |
+| `afs fs unzip` | Extract zip archive to destination |
+| `afs fs cp` | Copy/upload/download files |
+| `afs fs ls` | List objects in storage |
+| `afs fs url` | Generate access URL (Presigned URL or Public URL) |
+| `afs fs providers` | List supported storage providers |
 | `afs config` | Manage configuration |
 
-## Local operations
+## File operations (unified)
+
+All operations use URI schemes to distinguish local/cloud storage:
+- `file:///path` - Local filesystem
+- `s3://bucket/key` - Amazon S3
+- `r2://bucket/key` - Cloudflare R2
+- `oss://bucket/key` - Aliyun OSS
+- `cos://bucket/key` - Tencent COS
+- `cephfs:///path` - CephFS
 
 ### Get file/directory info
 
 ```bash
-# File info
-afs local info /path/to/file
+# Local file info
+afs fs info file:///path/to/file
 
-# Directory with details (file count, total bytes)
-afs local info /path/to/dir --details
+# Local directory with details
+afs fs info file:///path/to/dir --details
+
+# Cloud object info
+afs fs info s3://bucket/path/to/file
 ```
 
 **Output**:
@@ -83,17 +97,17 @@ afs local info /path/to/dir --details
 Designed for large files - avoid reading entire GB logs into context:
 
 ```bash
-# Read last N lines (perfect for error logs)
-afs local read /var/log/app.log --tail 100
+# Read last N lines from local file (perfect for error logs)
+afs fs read file:///var/log/app.log --tail 100
 
-# Read first N lines
-afs local read /path/to/config.yaml --head 20
+# Read first N lines from local file
+afs fs read file:///path/to/config.yaml --head 20
 
-# Read first N bytes
-afs local read /path/to/data.bin --bytes 4096
+# Read first N bytes from local file
+afs fs read file:///path/to/data.bin --bytes 4096
 
 # Read entire file (limited to 10MB)
-afs local read /path/to/small.txt
+afs fs read file:///path/to/small.txt
 ```
 
 **Output**:
@@ -116,11 +130,11 @@ afs local read /path/to/small.txt
 ### Create archive
 
 ```bash
-# Zip a file or directory
-afs local zip /data --out backup.zip
+# Zip a local file or directory
+afs fs zip file:///data --out backup.zip
 
 # Zip with nested paths
-afs local zip ./project/src --out archive.zip
+afs fs zip file:///project/src --out archive.zip
 ```
 
 **Output**:
@@ -141,7 +155,7 @@ afs local zip ./project/src --out archive.zip
 
 ```bash
 # Extract to directory
-afs local unzip backup.zip --dest /restore
+afs fs unzip file://backup.zip --dest /restore
 ```
 
 **Output**:
@@ -159,9 +173,9 @@ afs local unzip backup.zip --dest /restore
 }
 ```
 
-## Cloud operations
+## Cloud storage operations
 
-### Upload
+### Upload (cp)
 
 **⚠️ Security requirement**: Remote path MUST follow `date/hash/` format for cloud uploads. This prevents conflicts and organizes files by time.
 
@@ -169,13 +183,13 @@ afs local unzip backup.zip --dest /restore
 # Upload file (REQUIRED format: YYYYMMDD/hash/filename)
 DATE=$(date +%Y%m%d)
 HASH=$(md5sum /path/file | cut -c1-8)
-afs cloud upload local_file.txt "${DATE}/${HASH}/file.txt" --provider s3
+afs fs cp ./local_file.txt s3://bucket/${DATE}/${HASH}/file.txt
 
 # Upload directory with automatic compression
-afs cloud upload /data/logs/ "20260301/a3b4c5d6/logs.zip" --zip --provider r2
+afs fs cp /data/logs/ r2://bucket/20260301/a3b4c5d6/logs.zip --zip
 
 # Example: backup with timestamp
-afs cloud upload backup.zip "backups/$(date +%Y%m%d)/$(date +%H%M%S).zip"
+afs fs cp ./backup.zip s3://bucket/backups/$(date +%Y%m%d)/$(date +%H%M%S).zip
 ```
 
 **Path format breakdown**:
@@ -201,14 +215,14 @@ afs cloud upload backup.zip "backups/$(date +%Y%m%d)/$(date +%H%M%S).zip"
 }
 ```
 
-### Download
+### Download (cp)
 
 ```bash
 # Download file
-afs cloud download remote/file.txt /local/path/
+afs fs cp s3://bucket/remote/file.txt /local/path/
 
 # Download and auto-extract
-afs cloud download remote/archive.zip /local/dir/ --unzip
+afs fs cp s3://bucket/remote/archive.zip /local/dir/ --unzip
 ```
 
 **Output**:
@@ -228,14 +242,14 @@ afs cloud download remote/archive.zip /local/dir/ --unzip
 }
 ```
 
-### List objects
+### List objects (ls)
 
 ```bash
 # List objects with prefix
-afs cloud list backups/ --limit 50 --provider s3
+afs fs ls s3://bucket/backups/ --limit 50
 
 # List all objects in bucket
-afs cloud list --provider r2
+afs fs ls r2://bucket/
 ```
 
 **Output**:
@@ -268,17 +282,17 @@ Generate presigned URL for temporary private access or public URL for publicly a
 
 ```bash
 # Generate presigned URL (default 15 minutes valid)
-afs cloud url remote/file.txt
+afs fs url s3://bucket/remote/file.txt
 
 # Custom expiration time (in seconds)
-afs cloud url remote/file.txt --expires 3600  # 1 hour
-afs cloud url remote/file.txt --expires 60    # 1 minute
+afs fs url s3://bucket/remote/file.txt --expires 3600  # 1 hour
+afs fs url s3://bucket/remote/file.txt --expires 60    # 1 minute
 
 # Generate public URL (for objects with public read access)
-afs cloud url remote/public.jpg --public
+afs fs url s3://bucket/remote/public.jpg --public
 
 # Specify provider
-afs cloud url remote/file.txt --provider r2 --expires 7200
+afs fs url r2://bucket/remote/file.txt --expires 7200
 ```
 
 **Output (Presigned URL)**:
@@ -314,13 +328,12 @@ afs cloud url remote/file.txt --provider r2 --expires 7200
 **URL flags**:
 - `--expires N` - Expiration time in seconds (default: 900 = 15 minutes)
 - `--public` - Generate public URL instead of presigned URL
-- `--provider` - Cloud storage provider
 
 ### List supported providers
 
 ```bash
 # List all supported cloud storage providers
-afs cloud providers
+afs fs providers
 ```
 
 **Output**:
@@ -348,13 +361,13 @@ afs cloud providers
         "config_note": "Set path_style=true for non-virtual-hosted-style access"
       },
       {
-        "name": "alioss",
+        "name": "oss",
         "description": "Alibaba Cloud Object Storage Service (OSS)",
         "endpoint_example": "https://oss-cn-hangzhou.aliyuncs.com",
         "config_note": "Replace region in endpoint: oss-{region}.aliyuncs.com"
       },
       {
-        "name": "txcos",
+        "name": "cos",
         "description": "Tencent Cloud Object Storage (COS)",
         "endpoint_example": "https://cos.ap-guangzhou.myqcloud.com",
         "config_note": "Replace region in endpoint: cos.{region}.myqcloud.com"
@@ -430,8 +443,8 @@ r2:
 | AWS S3 | `s3` | `https://s3.amazonaws.com` | Amazon S3 |
 | Cloudflare R2 | `r2` | Auto-generated (set account_id) | Cloudflare R2 |
 | MinIO | `minio` | `http://localhost:9000` | Self-hosted object storage |
-| Aliyun OSS | `alioss` | `https://oss-cn-hangzhou.aliyuncs.com` | Aliyun Object Storage |
-| Tencent COS | `txcos` | `https://cos.ap-guangzhou.myqcloud.com` | Tencent Cloud Object Storage |
+| Aliyun OSS | `oss` | `https://oss-cn-hangzhou.aliyuncs.com` | Aliyun Object Storage |
+| Tencent COS | `cos` | `https://cos.ap-guangzhou.myqcloud.com` | Tencent Cloud Object Storage |
 | Backblaze B2 | `b2` | `https://s3.us-west-004.backblazeb2.com` | B2 S3 compatible |
 | Wasabi | `wasabi` | `https://s3.wasabisys.com` | Wasabi Hot Cloud Storage |
 
@@ -445,7 +458,7 @@ Any S3-protocol compatible object storage is supported:
 
 **Query supported providers**:
 ```bash
-afs cloud providers
+afs fs providers
 ```
 
 ## Output format
@@ -483,11 +496,11 @@ All commands return standardized JSON for AI Agent parsing:
 
 ```bash
 # Correct format
-afs cloud upload file.txt "20260301/a3b4c5d6/file.txt"
+afs fs cp ./file.txt s3://bucket/20260301/a3b4c5d6/file.txt
 
 # Incorrect (will be rejected)
-afs cloud upload file.txt "file.txt"
-afs cloud upload file.txt "uploads/file.txt"
+afs fs cp ./file.txt s3://bucket/file.txt
+afs fs cp ./file.txt s3://bucket/uploads/file.txt
 ```
 
 **Reasons**:
@@ -504,7 +517,7 @@ Restrict operations to a specific directory:
 export AFS_WORKSPACE=/safe/workspace
 
 # Now all operations are restricted to /safe/workspace
-afs local info /etc/passwd  # ERROR: path is outside AFS_WORKSPACE
+afs fs info file:///etc/passwd  # ERROR: path is outside AFS_WORKSPACE
 ```
 
 ### Path traversal protection
@@ -517,44 +530,44 @@ All paths are validated against `AFS_WORKSPACE`. The `../` sequences are blocked
 
 ```bash
 # 1. Get info before processing
-afs local info /data --details
+afs fs info file:///data --details
 
 # 2. Create compressed archive
-afs local zip /data --out backup.zip
+afs fs zip file:///data --out backup.zip
 
 # 3. Upload to cloud (REQUIRED: date/hash/ format)
 DATE=$(date +%Y%m%d)
 HASH=$(md5sum backup.zip | cut -c1-8)
-afs cloud upload backup.zip "backups/${DATE}/${HASH}/backup.zip"
+afs fs cp ./backup.zip s3://bucket/backups/${DATE}/${HASH}/backup.zip
 
 # 4. Verify upload
-afs cloud list "backups/${DATE}/" --limit 1
+afs fs ls s3://bucket/backups/${DATE}/ --limit 1
 ```
 
 ### Error log analysis workflow
 
 ```bash
 # 1. Check log size
-afs local info /var/log/app.log
+afs fs info file:///var/log/app.log
 
 # 2. Read last 100 lines for errors
-afs local read /var/log/app.log --tail 100
+afs fs read file:///var/log/app.log --tail 100
 
 # 3. If needed, get more context
-afs local read /var/log/app.log --tail 500
+afs fs read file:///var/log/app.log --tail 500
 ```
 
 ### Cloud sync workflow
 
 ```bash
 # 1. List remote files
-afs cloud list projects/ --limit 100
+afs fs ls s3://bucket/projects/ --limit 100
 
 # 2. Download needed file
-afs cloud download projects/config.yaml ./
+afs fs cp s3://bucket/projects/config.yaml ./
 
 # 3. Extract if compressed
-afs local unzip config.zip --dest ./
+afs fs unzip file://config.zip --dest ./
 ```
 
 ## Error codes
@@ -586,16 +599,16 @@ afs local unzip config.zip --dest ./
 agent-fs/
 ├── cmd/                    # CLI commands
 │   ├── root.go             # Root command
-│   ├── local.go            # Local operations
-│   ├── cloud.go            # Cloud operations
+│   ├── fs.go               # Unified file operations (info/read/zip/unzip/cp/ls/url)
 │   └── config.go           # Config management
 ├── pkg/                    # Core logic
 │   ├── local/              # Local file operations
 │   │   ├── info.go         # File info
 │   │   └── read.go         # File reading
-│   ├── archive/            # Zip operations
-│   ├── cloud/              # Cloud abstraction
-│   ├── s3client/           # S3 client
+│   ├── provider/           # Storage providers (S3, R2, OSS, COS, CephFS)
+│   ├── cloud/              # Cloud abstraction layer
+│   ├── unified/            # Unified operations (adapter, dispatcher)
+│   ├── uri/                # URI parser
 │   ├── sandbox/            # Path security
 │   ├── output/             # JSON output
 │   └── apperr/             # Error handling

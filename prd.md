@@ -40,7 +40,7 @@
 agent-fs/
 ├── cmd/                # Cobra 命令注册入口
 │   ├── root.go         # 根命令
-│   ├── fs.go           # 统一文件操作 (local/cloud/cp)
+│   ├── fs.go           # 统一文件操作 (info/read/cp/ls/url等)
 │   └── config.go       # 凭证与配置管理
 ├── pkg/                # 核心逻辑封装
 │   ├── sandbox/        # 路径安全校验隔离层
