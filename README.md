@@ -926,10 +926,11 @@ afs config get s3.endpoint
 | AWS S3 | `s3` | `https://s3.amazonaws.com` | Amazon S3 |
 | Cloudflare R2 | `r2` | Auto-generated (set account_id) | Cloudflare R2 |
 | MinIO | `minio` | `http://localhost:9000` | Self-hosted object storage |
-| Alibaba OSS | `alioss` | `https://oss-cn-hangzhou.aliyuncs.com` | Alibaba Cloud OSS |
-| Tencent COS | `txcos` | `https://cos.ap-guangzhou.myqcloud.com` | Tencent Cloud COS |
+| Alibaba OSS | `oss` | `https://oss-cn-hangzhou.aliyuncs.com` | Alibaba Cloud OSS |
+| Tencent COS | `cos` | `https://cos.ap-guangzhou.myqcloud.com` | Tencent Cloud COS |
 | Backblaze B2 | `b2` | `https://s3.us-west-004.backblazeb2.com` | B2 S3 compatible |
 | Wasabi | `wasabi` | `https://s3.wasabisys.com` | Wasabi hot cloud storage |
+| CephFS | `cephfs` | N/A | Distributed filesystem (requires libcephfs) |
 
 View full list:
 
