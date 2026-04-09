@@ -24,8 +24,7 @@
 agent-fs/
 ├── cmd/                    # CLI 命令
 │   ├── root.go             # 根命令、版本、配置初始化
-│   ├── local.go            # 本地操作 (zip/unzip/info/read)
-│   ├── cloud.go            # 云存储操作 (upload/download/list/url)
+│   ├── fs.go                # 统一文件系统操作 (read/ls/info/cp/url)
 │   └── config.go           # 配置管理 (set/get)
 ├── pkg/                    # 核心逻辑
 │   ├── apperr/             # 错误处理（错误码、解析）
@@ -58,7 +57,7 @@ agent-fs/
 ### 1. 编译检查
 
 ```bash
-cd /root/agent-fs
+cd /mnt/data/hub/agent-fs
 go build -o afs .
 ```
 
@@ -106,12 +105,12 @@ go vet ./...
 
 ```bash
 # 测试本地操作
-./afs local info main.go
-./afs local read main.go --head 5
+./afs fs info main.go
+./afs fs read main.go --head 5
 
 # 测试云操作（需要配置）
-./afs cloud list test/ --limit 5
-./afs cloud providers
+./afs fs ls s3://bucket/test/
+./afs fs providers
 
 # 测试配置
 ./afs config get s3.bucket
@@ -136,7 +135,7 @@ go vet ./...
 - [ ] 输出格式示例正确
 - [ ] 配置说明准确
 
-### 9. 更新 CHANGELOG.md
+### 7. 更新 CHANGELOG.md
 
 提交信息格式：
 
@@ -228,8 +227,8 @@ go build -o afs .
 
 # 3. 手动测试核心功能
 ./afs version           # 应显示 "dev"
-./afs local info README.md
-./afs cloud providers
+./afs fs info README.md
+./afs fs providers
 ```
 
 ### 2. 版本号说明
@@ -364,37 +363,47 @@ git push origin vx.x.x
 
 ## 命令参考
 
-### local 命令
+### fs 命令
+
+`fs` 是统一的文件系统操作命令，支持本地和云存储。
+
+**支持的 URI Scheme:**
+- `file` - 本地文件系统（默认，可省略）
+- `s3` - Amazon S3
+- `r2` - Cloudflare R2
+- `minio` - MinIO
+- `cos` - 腾讯云 COS
+- `oss` - 阿里云 OSS
 
 ```bash
-afs local info <path>                    # 获取文件/目录元数据
-afs local info <path> --details          # 包含文件数和总大小
+# 读取文件内容
+afs fs read <path>                    # 读取本地文件
+afs fs read s3://bucket/key           # 读取云存储文件
+afs fs read <path> --head N           # 读取开头 N 行
+afs fs read <path> --tail N           # 读取末尾 N 行
+afs fs read <path> --bytes N          # 读取前 N 字节
 
-afs local read <path> --tail N            # 读取末尾 N 行
-afs local read <path> --head N            # 读取开头 N 行
-afs local read <path> --bytes N           # 读取前 N 字节
+# 列出文件
+afs fs ls <path>                      # 列出本地目录
+afs fs ls s3://bucket/prefix/         # 列出云存储对象
+afs fs ls <path> --limit N            # 限制返回数量
 
-afs local zip <source> --out <file>        # 创建 zip 归档
-afs local unzip <zip> --dest <dir>         # 解压归档
-```
+# 获取文件信息
+afs fs info <path>                    # 获取本地文件元数据
+afs fs info s3://bucket/key           # 获取云存储对象元数据
 
-### cloud 命令
+# 复制文件
+afs fs cp <source> <dest>             # 复制文件
+afs fs cp s3://bucket/key ./local/    # 从云存储下载
+afs fs cp ./local/file s3://bucket/   # 上传到云存储
 
-```bash
-afs cloud upload <local> <remote>         # 上传文件
-afs cloud upload <dir> <remote> --zip      # 上传并压缩
+# 生成 URL
+afs fs url <path>                     # 生成 Presigned URL
+afs fs url <path> --expires 3600      # 自定义过期时间
+afs fs url <path> --public            # 生成公共 URL
 
-afs cloud download <remote> <local>      # 下载文件
-afs cloud download <remote> <local> --unzip  # 下载并解压
-
-afs cloud list [prefix] --limit N          # 列出对象
-afs cloud list <path>/ --limit 50
-
-afs cloud url <remote_key>                # 生成 Presigned URL
-afs cloud url <remote_key> --expires 3600  # 自定义过期时间
-afs cloud url <remote_key> --public       # 生成公共 URL
-
-afs cloud providers                       # 列出支持的提供商
+# 查看支持的提供商
+afs fs providers                      # 列出所有支持的云存储提供商
 ```
 
 ### config 命令
@@ -498,11 +507,3 @@ resolvedPath, err := sandbox.ResolveReadPath(userInput)
 - Viper: https://github.com/spf13/viper
 - 项目参考: https://github.com/geekjourneyx/jina-cli
 
----
-
-## 作者
-
-**[geekjourneyx](https://geekjourney.dev)**
-
-- **X (Twitter)**: https://x.com/seekjourney
-- **公众号**: 极客杰尼

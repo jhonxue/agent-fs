@@ -43,8 +43,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| `local` | 本地文件操作（zip/unzip/info/read） |
-| `cloud` | 云存储同步（upload/download/list/url） |
+| `fs` | 统一文件系统操作（read/ls/cp/info），支持本地和云存储 |
 | `config` | 配置管理（set/get） |
 
 **为什么选择 `afs`？**
@@ -69,21 +68,24 @@ afs version
 
 # 3. 查看帮助
 afs --help
-afs local --help
-afs cloud --help
+afs fs --help
 ```
 
 #### 第一个命令
 
 ```bash
-# 获取文件信息
-afs local info /path/to/file.json
+# 获取文件信息（支持本地和云存储 URI）
+afs fs info s3://bucket/file.json
+afs fs info /path/to/file.json
 
-# 读取文件末尾 50 行
-afs local read /var/log/app.log --tail 50
+# 读取文件（支持 --head, --tail, --bytes 切片读取）
+afs fs read /var/log/app.log --tail 50
 
-# 上传文件到云存储（需要先配置）
-afs cloud upload local.txt remote/path/
+# 列出目录/前缀下的文件
+afs fs ls s3://bucket/prefix/
+
+# 跨存储类型复制文件
+afs fs cp s3://bucket/data.json file:///tmp/data.json
 ```
 
 ---
@@ -157,11 +159,11 @@ npx skills add https://github.com/geekjourneyx/agent-fs --skill afs
 ##### 获取文件/目录信息
 
 ```bash
-# 获取文件信息
-afs local info /path/to/file.json
+# 获取文件/目录信息
+afs fs info /path/to/file.json
 
-# 获取目录信息（包含文件数和总大小）
-afs local info /path/to/dir --details
+# 也支持云存储 URI
+afs fs info s3://bucket/file.json
 
 # 输出示例：
 # {
@@ -185,26 +187,26 @@ afs local info /path/to/dir --details
 
 ```bash
 # 读取末尾 N 行（查看日志常用）
-afs local read /var/log/app.log --tail 50
+afs fs read /var/log/app.log --tail 50
 
 # 读取开头 N 行
-afs local read /var/log/app.log --head 20
+afs fs read /var/log/app.log --head 20
 
 # 读取前 N 字节
-afs local read /data.bin --bytes 1024
+afs fs read /data.bin --bytes 1024
 
 # 读取完整文件（默认上限 10MB）
-afs local read /path/to/small.txt
+afs fs read /path/to/small.txt
 ```
 
 ##### 打包与解压
 
 ```bash
 # 创建 zip 归档
-afs local zip /data/logs --out backup.zip
+afs fs zip /data/logs --out backup.zip
 
 # 解压到指定目录
-afs local unzip backup.zip --dest /restore
+afs fs unzip backup.zip --dest /restore
 
 # 输出示例：
 # {
@@ -229,36 +231,36 @@ afs local unzip backup.zip --dest /restore
 
 ```bash
 # 上传单个文件
-afs cloud upload local.txt remote/path/
+afs fs cp local.txt remote/path/
 
 # 上传目录（自动压缩）
-afs cloud upload /logs remote/logs/ --zip
+afs fs cp /logs remote/logs/ --zip
 
 # 指定 provider
-afs cloud upload file.txt remote/ --provider r2
+afs fs cp file.txt remote/ --provider r2
 ```
 
 ##### 下载文件
 
 ```bash
 # 下载文件
-afs cloud download remote/file.txt ./
+afs fs cp remote/file.txt ./
 
 # 下载并自动解压
-afs cloud download remote/archive.zip ./ --unzip
+afs fs cp remote/archive.zip ./ --unzip
 
 # 覆盖本地文件
-afs cloud download remote/file.txt ./ --overwrite
+afs fs cp remote/file.txt ./ --overwrite
 ```
 
 ##### 列出对象
 
 ```bash
 # 列出指定前缀的对象
-afs cloud list remote/path/
+afs fs ls remote/path/
 
 # 限制返回数量
-afs cloud list remote/path/ --limit 50
+afs fs ls remote/path/ --limit 50
 
 # 输出示例：
 # {
@@ -275,16 +277,16 @@ afs cloud list remote/path/ --limit 50
 
 ##### 生成访问 URL
 
-`afs cloud url` 支持两种 URL 类型：
+`afs fs` 支持两种 URL 类型：
 
 **Presigned URL（默认，推荐用于私密文件）**
 
 ```bash
 # 生成带签名的 URL（默认 15 分钟有效期）
-afs cloud url remote/file.txt
+afs fs remote/file.txt
 
 # 自定义过期时间（秒）
-afs cloud url remote/file.txt --expires 3600
+afs fs remote/file.txt --expires 3600
 ```
 
 - **特点**：带签名认证，有过期时间
@@ -295,7 +297,7 @@ afs cloud url remote/file.txt --expires 3600
 
 ```bash
 # 生成公共访问 URL
-afs cloud url remote/public.jpg --public
+afs fs remote/public.jpg --public
 ```
 
 - **特点**：无需认证，永久可访问（直到文件删除）
@@ -364,7 +366,7 @@ afs config get s3.endpoint
 查看完整列表：
 
 ```bash
-afs cloud providers
+afs fs providers
 ```
 
 #### Cloudflare R2 配置示例
@@ -440,23 +442,23 @@ export AFS_S3_SECRET_ACCESS_KEY=your-secret-key
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
-| `afs local info <path>` | 获取文件/目录元数据 | `afs local info file.txt` |
-| `afs local read <path> --tail N` | 读取末尾 N 行 | `afs local read log.txt --tail 50` |
-| `afs local read <path> --head N` | 读取开头 N 行 | `afs local read log.txt --head 20` |
-| `afs local read <path> --bytes N` | 读取前 N 字节 | `afs local read data.bin --bytes 1024` |
-| `afs local zip <source> --out <file>` | 创建 zip 归档 | `afs local zip /data --out backup.zip` |
-| `afs local unzip <zip> --dest <dir>` | 解压归档 | `afs local unzip backup.zip --dest /restore` |
+| `afs fs info <path>` | 获取文件/目录元数据 | `afs fs info file.txt` |
+| `afs fs read <path> --tail N` | 读取末尾 N 行 | `afs fs read log.txt --tail 50` |
+| `afs fs read <path> --head N` | 读取开头 N 行 | `afs fs read log.txt --head 20` |
+| `afs fs read <path> --bytes N` | 读取前 N 字节 | `afs fs read data.bin --bytes 1024` |
+| `afs fs zip <source> --out <file>` | 创建 zip 归档 | `afs fs zip /data --out backup.zip` |
+| `afs fs unzip <zip> --dest <dir>` | 解压归档 | `afs fs unzip backup.zip --dest /restore` |
 
 #### 云存储命令
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
-| `afs cloud upload <local> <remote>` | 上传文件 | `afs cloud upload file.txt remote/` |
-| `afs cloud download <remote> <local>` | 下载文件 | `afs cloud download remote/file.txt ./` |
-| `afs cloud list [prefix]` | 列出对象 | `afs cloud list remote/path/ --limit 50` |
-| `afs cloud url <remote_key>` | 生成 Presigned URL | `afs cloud url remote/file.txt --expires 3600` |
-| `afs cloud url <remote_key> --public` | 生成公共 URL | `afs cloud url remote/image.jpg --public` |
-| `afs cloud providers` | 列出支持的提供商 | `afs cloud providers` |
+| `afs fs cp <local> <remote>` | 上传文件 | `afs fs cp file.txt remote/` |
+| `afs fs cp <remote> <local>` | 下载文件 | `afs fs cp remote/file.txt ./` |
+| `afs fs ls [prefix]` | 列出对象 | `afs fs ls remote/path/ --limit 50` |
+| `afs fs <remote_key>` | 生成 Presigned URL | `afs fs remote/file.txt --expires 3600` |
+| `afs fs url <remote_key> --public` | 生成公共 URL | `afs fs url remote/image.jpg --public` |
+| `afs fs providers` | 列出支持的提供商 | `afs fs providers` |
 
 #### 配置命令
 
@@ -470,13 +472,13 @@ export AFS_S3_SECRET_ACCESS_KEY=your-secret-key
 
 | 选项 | 说明 | 适用于 |
 |------|------|--------|
-| `--provider <name>` | 指定云存储提供商 | 所有 cloud 命令 |
-| `--zip` | 上传前自动压缩 | `cloud upload` |
-| `--unzip` | 下载后自动解压 | `cloud download` |
-| `--overwrite` | 覆盖本地文件 | `cloud download` |
-| `--expires <seconds>` | URL 过期时间 | `cloud url` |
-| `--public` | 生成公共 URL | `cloud url` |
-| `--details` | 包含详细信息 | `local info` |
+| `--provider <name>` | 指定云存储提供商 | 所有 fs 命令 |
+| `--zip` | 上传前自动压缩 | `fs cp` |
+| `--unzip` | 下载后自动解压 | `fs cp` |
+| `--overwrite` | 覆盖本地文件 | `fs cp` |
+| `--expires <seconds>` | URL 过期时间 | `fs url` |
+| `--public` | 生成公共 URL | `fs url` |
+| `--details` | 包含详细信息 | `fs info` |
 
 ---
 
@@ -544,7 +546,7 @@ export AFS_S3_SECRET_ACCESS_KEY=your-secret-key
 export AFS_WORKSPACE=/safe/workspace
 
 # 以下操作会被拒绝
-afs local info /etc/passwd
+afs fs info /etc/passwd
 # ERROR: access denied: path is outside AFS_WORKSPACE
 ```
 
@@ -572,8 +574,7 @@ afs version
 
 ```bash
 afs --help           # 查看主帮助
-afs local --help     # 查看 local 命令帮助
-afs cloud --help     # 查看 cloud 命令帮助
+afs fs --help        # 查看 fs 命令帮助（支持本地和云存储）
 ```
 
 #### Q: 配置文件在哪里？
@@ -584,7 +585,7 @@ afs cloud --help     # 查看 cloud 命令帮助
 
 #### Q: 支持哪些云存储？
 
-`afs` 支持所有 S3 兼容的对象存储，包括 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 等。运行 `afs cloud providers` 查看完整列表。
+`afs` 支持所有 S3 兼容的对象存储，包括 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 等。运行 `afs fs providers` 查看完整列表。
 
 #### Q: 如何处理大文件？
 
@@ -592,10 +593,10 @@ afs cloud --help     # 查看 cloud 命令帮助
 
 ```bash
 # 读取日志末尾 100 行
-afs local read large.log --tail 100
+afs fs read large.log --tail 100
 
 # 读取前 1KB
-afs local read large.bin --bytes 1024
+afs fs read large.bin --bytes 1024
 ```
 
 #### Q: Public URL 和 Presigned URL 有什么区别？
@@ -614,10 +615,10 @@ afs local read large.bin --bytes 1024
 afs config get s3.endpoint
 
 # 2. 测试连接
-afs cloud list / --limit 1
+afs fs ls / --limit 1
 
 # 3. 查看详细错误信息（stderr）
-afs cloud upload file.txt remote/ 2>&1
+afs fs cp file.txt remote/ 2>&1
 ```
 
 ---
@@ -677,21 +678,20 @@ afs version
 
 # 3. Get help
 afs --help
-afs local --help
-afs cloud --help
+afs fs --help
 ```
 
 #### Your First Command
 
 ```bash
 # Get file info
-afs local info /path/to/file.json
+afs fs info /path/to/file.json
 
 # Read last 50 lines
-afs local read /var/log/app.log --tail 50
+afs fs read /var/log/app.log --tail 50
 
 # Upload to cloud (requires configuration)
-afs cloud upload local.txt remote/path/
+afs fs cp local.txt remote/path/
 ```
 
 ---
@@ -747,10 +747,10 @@ go build -o afs .
 
 ```bash
 # Get file info
-afs local info /path/to/file.json
+afs fs info /path/to/file.json
 
 # Get directory info (includes file count and total size)
-afs local info /path/to/dir --details
+afs fs info /path/to/dir --details
 ```
 
 ##### Read File Content
@@ -759,26 +759,26 @@ afs local info /path/to/dir --details
 
 ```bash
 # Read last N lines (useful for logs)
-afs local read /var/log/app.log --tail 50
+afs fs read /var/log/app.log --tail 50
 
 # Read first N lines
-afs local read /var/log/app.log --head 20
+afs fs read /var/log/app.log --head 20
 
 # Read first N bytes
-afs local read /data.bin --bytes 1024
+afs fs read /data.bin --bytes 1024
 
 # Read complete file (default limit: 10MB)
-afs local read /path/to/small.txt
+afs fs read /path/to/small.txt
 ```
 
 ##### Archive Operations
 
 ```bash
 # Create zip archive
-afs local zip /data/logs --out backup.zip
+afs fs zip /data/logs --out backup.zip
 
 # Extract to directory
-afs local unzip backup.zip --dest /restore
+afs fs unzip backup.zip --dest /restore
 ```
 
 ---
@@ -791,50 +791,50 @@ afs local unzip backup.zip --dest /restore
 
 ```bash
 # Upload single file
-afs cloud upload local.txt remote/path/
+afs fs cp local.txt remote/path/
 
 # Upload directory (auto-compress)
-afs cloud upload /logs remote/logs/ --zip
+afs fs cp /logs remote/logs/ --zip
 
 # Specify provider
-afs cloud upload file.txt remote/ --provider r2
+afs fs cp file.txt remote/ --provider r2
 ```
 
 ##### Download Files
 
 ```bash
 # Download file
-afs cloud download remote/file.txt ./
+afs fs cp remote/file.txt ./
 
 # Download and auto-extract
-afs cloud download remote/archive.zip ./ --unzip
+afs fs cp remote/archive.zip ./ --unzip
 
 # Overwrite local file
-afs cloud download remote/file.txt ./ --overwrite
+afs fs cp remote/file.txt ./ --overwrite
 ```
 
 ##### List Objects
 
 ```bash
 # List objects with prefix
-afs cloud list remote/path/
+afs fs ls remote/path/
 
 # Limit results
-afs cloud list remote/path/ --limit 50
+afs fs ls remote/path/ --limit 50
 ```
 
 ##### Generate Access URL
 
-`afs cloud url` supports two URL types:
+`afs fs` supports two URL types:
 
 **Presigned URL (Default, for Private Files)**
 
 ```bash
 # Generate signed URL (default 15 min expiration)
-afs cloud url remote/file.txt
+afs fs remote/file.txt
 
 # Custom expiration (seconds)
-afs cloud url remote/file.txt --expires 3600
+afs fs remote/file.txt --expires 3600
 ```
 
 - **Features**: Authenticated with signature, expires after set time
@@ -845,7 +845,7 @@ afs cloud url remote/file.txt --expires 3600
 
 ```bash
 # Generate public access URL
-afs cloud url remote/public.jpg --public
+afs fs remote/public.jpg --public
 ```
 
 - **Features**: No authentication, permanently accessible (until deleted)
@@ -903,7 +903,7 @@ afs config get s3.endpoint
 View full list:
 
 ```bash
-afs cloud providers
+afs fs providers
 ```
 
 #### Cloudflare R2 Setup Example
@@ -962,23 +962,23 @@ For public access URLs:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `afs local info <path>` | Get file/directory metadata | `afs local info file.txt` |
-| `afs local read <path> --tail N` | Read last N lines | `afs local read log.txt --tail 50` |
-| `afs local read <path> --head N` | Read first N lines | `afs local read log.txt --head 20` |
-| `afs local read <path> --bytes N` | Read first N bytes | `afs local read data.bin --bytes 1024` |
-| `afs local zip <source> --out <file>` | Create zip archive | `afs local zip /data --out backup.zip` |
-| `afs local unzip <zip> --dest <dir>` | Extract archive | `afs local unzip backup.zip --dest /restore` |
+| `afs fs info <path>` | Get file/directory metadata | `afs fs info file.txt` |
+| `afs fs read <path> --tail N` | Read last N lines | `afs fs read log.txt --tail 50` |
+| `afs fs read <path> --head N` | Read first N lines | `afs fs read log.txt --head 20` |
+| `afs fs read <path> --bytes N` | Read first N bytes | `afs fs read data.bin --bytes 1024` |
+| `afs fs zip <source> --out <file>` | Create zip archive | `afs fs zip /data --out backup.zip` |
+| `afs fs unzip <zip> --dest <dir>` | Extract archive | `afs fs unzip backup.zip --dest /restore` |
 
 #### Cloud Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `afs cloud upload <local> <remote>` | Upload file | `afs cloud upload file.txt remote/` |
-| `afs cloud download <remote> <local>` | Download file | `afs cloud download remote/file.txt ./` |
-| `afs cloud list [prefix]` | List objects | `afs cloud list remote/path/ --limit 50` |
-| `afs cloud url <remote_key>` | Generate Presigned URL | `afs cloud url remote/file.txt --expires 3600` |
-| `afs cloud url <remote_key> --public` | Generate public URL | `afs cloud url remote/image.jpg --public` |
-| `afs cloud providers` | List supported providers | `afs cloud providers` |
+| `afs fs cp <local> <remote>` | Upload file | `afs fs cp file.txt remote/` |
+| `afs fs cp <remote> <local>` | Download file | `afs fs cp remote/file.txt ./` |
+| `afs fs ls [prefix]` | List objects | `afs fs ls remote/path/ --limit 50` |
+| `afs fs <remote_key>` | Generate Presigned URL | `afs fs remote/file.txt --expires 3600` |
+| `afs fs url <remote_key> --public` | Generate public URL | `afs fs url remote/image.jpg --public` |
+| `afs fs providers` | List supported providers | `afs fs providers` |
 
 #### Configuration Commands
 
@@ -992,13 +992,13 @@ For public access URLs:
 
 | Option | Description | Applies to |
 |--------|-------------|------------|
-| `--provider <name>` | Specify cloud provider | All cloud commands |
-| `--zip` | Auto-compress before upload | `cloud upload` |
-| `--unzip` | Auto-extract after download | `cloud download` |
-| `--overwrite` | Overwrite local file | `cloud download` |
-| `--expires <seconds>` | URL expiration time | `cloud url` |
-| `--public` | Generate public URL | `cloud url` |
-| `--details` | Include detailed info | `local info` |
+| `--provider <name>` | Specify cloud provider | All fs commands |
+| `--zip` | Auto-compress before upload | `fs cp` |
+| `--unzip` | Auto-extract after download | `fs cp` |
+| `--overwrite` | Overwrite local file | `fs cp` |
+| `--expires <seconds>` | URL expiration time | `fs url` |
+| `--public` | Generate public URL | `fs url` |
+| `--details` | Include detailed info | `fs info` |
 
 ---
 
@@ -1050,7 +1050,7 @@ Set `AFS_WORKSPACE` environment variable to restrict operations:
 export AFS_WORKSPACE=/safe/workspace
 
 # Operations outside this directory will be blocked
-afs local info /etc/passwd
+afs fs info /etc/passwd
 # ERROR: access denied: path is outside AFS_WORKSPACE
 ```
 
@@ -1078,8 +1078,7 @@ afs version
 
 ```bash
 afs --help           # Main help
-afs local --help     # Local command help
-afs cloud --help     # Cloud command help
+afs fs --help        # fs command help (supports local and cloud)
 ```
 
 #### Q: Where is the config file?
@@ -1090,7 +1089,7 @@ Config file priority (high to low):
 
 #### Q: Which cloud providers are supported?
 
-All S3-compatible object storage, including AWS S3, Cloudflare R2, MinIO, Alibaba OSS, Tencent COS, etc. Run `afs cloud providers` for full list.
+All S3-compatible object storage, including AWS S3, Cloudflare R2, MinIO, Alibaba OSS, Tencent COS, etc. Run `afs fs providers` for full list.
 
 #### Q: How to handle large files?
 
@@ -1098,10 +1097,10 @@ Use `--tail`, `--head`, or `--bytes` for chunked reading:
 
 ```bash
 # Read last 100 lines
-afs local read large.log --tail 100
+afs fs read large.log --tail 100
 
 # Read first 1KB
-afs local read large.bin --bytes 1024
+afs fs read large.bin --bytes 1024
 ```
 
 #### Q: What's the difference between Public URL and Presigned URL?

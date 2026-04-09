@@ -1,6 +1,7 @@
 # Binaries
 afs
 afs-*
+agent-fs
 *.exe
 *.test
 dist/

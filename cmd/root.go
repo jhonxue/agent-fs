@@ -45,8 +45,6 @@ func SetVersion(v, c, d string) {
 }
 
 func init() {
-	rootCmd.AddCommand(localCmd)
-	rootCmd.AddCommand(cloudCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(versionCmd)
 }

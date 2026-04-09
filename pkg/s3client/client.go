@@ -249,6 +249,95 @@ func buildKey(prefix, key string) string {
 	return path.Join(p, k)
 }
 
+// GetObject retrieves an object from S3 bucket
+func (c *Client) GetObject(ctx context.Context, input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+	bucket, err := c.getBucket(input.Bucket)
+	if err != nil {
+		return nil, err
+	}
+	input.Bucket = aws.String(bucket)
+	if input.Key != nil {
+		input.Key = aws.String(buildKey(c.cfg.PathPrefix, *input.Key))
+	}
+	return c.client.GetObject(ctx, input)
+}
+
+// PutObject uploads an object to S3 bucket
+func (c *Client) PutObject(ctx context.Context, input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+	bucket, err := c.getBucket(input.Bucket)
+	if err != nil {
+		return nil, err
+	}
+	input.Bucket = aws.String(bucket)
+	if input.Key != nil {
+		input.Key = aws.String(buildKey(c.cfg.PathPrefix, *input.Key))
+	}
+	return c.client.PutObject(ctx, input)
+}
+
+// DeleteObject deletes an object from S3 bucket
+func (c *Client) DeleteObject(ctx context.Context, input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
+	bucket, err := c.getBucket(input.Bucket)
+	if err != nil {
+		return nil, err
+	}
+	input.Bucket = aws.String(bucket)
+	if input.Key != nil {
+		input.Key = aws.String(buildKey(c.cfg.PathPrefix, *input.Key))
+	}
+	return c.client.DeleteObject(ctx, input)
+}
+
+// HeadObject retrieves metadata about an object without fetching the object itself
+func (c *Client) HeadObject(ctx context.Context, input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error) {
+	bucket, err := c.getBucket(input.Bucket)
+	if err != nil {
+		return nil, err
+	}
+	input.Bucket = aws.String(bucket)
+	if input.Key != nil {
+		input.Key = aws.String(buildKey(c.cfg.PathPrefix, *input.Key))
+	}
+	return c.client.HeadObject(ctx, input)
+}
+
+// CopyObject copies an object within S3 bucket
+func (c *Client) CopyObject(ctx context.Context, input *s3.CopyObjectInput) (*s3.CopyObjectOutput, error) {
+	bucket, err := c.getBucket(input.Bucket)
+	if err != nil {
+		return nil, err
+	}
+	input.Bucket = aws.String(bucket)
+	if input.Key != nil {
+		input.Key = aws.String(buildKey(c.cfg.PathPrefix, *input.Key))
+	}
+	if input.CopySource != nil {
+		// Build source key with path prefix
+		// CopySource format: bucket/key or bucket/path/to/key
+		source := *input.CopySource
+		// Split on first "/" to separate bucket from key
+		idx := strings.Index(source, "/")
+		if idx > 0 {
+			bucket := source[:idx]
+			key := source[idx+1:]
+			source = bucket + "/" + buildKey(c.cfg.PathPrefix, key)
+		}
+		input.CopySource = aws.String(source)
+	}
+	return c.client.CopyObject(ctx, input)
+}
+
+// getBucket returns the bucket name from the config or an error if not configured
+func (c *Client) getBucket(bucket *string) (string, error) {
+	if bucket != nil && *bucket != "" {
+		return *bucket, nil
+	}
+	if c.cfg.Bucket != "" {
+		return c.cfg.Bucket, nil
+	}
+	return "", fmt.Errorf("bucket not configured: please provide bucket name in input or client config")
+}
+
 func ensureEndpoint(endpoint string, useSSL bool) string {
 	ep := strings.TrimSpace(endpoint)
 	if strings.HasPrefix(ep, `http://`) || strings.HasPrefix(ep, `https://`) {

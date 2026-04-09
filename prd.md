@@ -40,8 +40,7 @@
 agent-fs/
 ├── cmd/                # Cobra 命令注册入口
 │   ├── root.go         # 根命令
-│   ├── local.go        # 本地文件操作 (zip, unzip, info)
-│   ├── cloud.go        # 云端同步操作 (upload, download)
+│   ├── fs.go           # 统一文件操作 (local/cloud/cp)
 │   └── config.go       # 凭证与配置管理
 ├── pkg/                # 核心逻辑封装
 │   ├── sandbox/        # 路径安全校验隔离层
@@ -56,24 +55,24 @@ agent-fs/
 
 ## 5. 核心命令与功能规范 (Commands & Features)
 
-### 5.1 本地文件操作 (`afs local`)
+### 5.1 本地文件操作 (`afs fs`)
 
 | 命令 | 参数示例 | 功能描述 | Agent 核心价值 |
 | --- | --- | --- | --- |
-| `info` | `afs local info ./data` | 获取文件/目录大小、权限、修改时间。 | 操作前预判，防止处理超大文件超时。 |
-| `zip` | `afs local zip ./logs --out archive.zip` | 将文件或目录打包为 Zip 格式。 | 减少多文件上传的 API 调用次数。 |
-| `unzip` | `afs local unzip archive.zip --dest ./tmp` | 解压文件到指定安全目录。 | 提取云端下载的数据包。 |
-| `read` | `afs local read error.log --tail 100` | 读取文件末尾/开头的指定行数或字节。 | 节省 Context 窗口，精准获取报错日志。 |
+| `info` | `afs fs info ./data` | 获取文件/目录大小、权限、修改时间。 | 操作前预判，防止处理超大文件超时。 |
+| `zip` | `afs fs zip ./logs --out archive.zip` | 将文件或目录打包为 Zip 格式。 | 减少多文件上传的 API 调用次数。 |
+| `unzip` | `afs fs unzip archive.zip --dest ./tmp` | 解压文件到指定安全目录。 | 提取云端下载的数据包。 |
+| `read` | `afs fs read error.log --tail 100` | 读取文件末尾/开头的指定行数或字节。 | 节省 Context 窗口，精准获取报错日志。 |
 
-### 5.2 云端存储交互 (`afs cloud`)
+### 5.2 云端存储交互 (`afs fs`)
 
 *所有云端命令默认依赖配置好的 S3 凭证 (Endpoint, AccessKey, SecretKey, Bucket)。*
 
 | 命令 | 参数示例 | 功能描述 | Agent 核心价值 |
 | --- | --- | --- | --- |
-| `upload` | `afs cloud upload ./archive.zip remote/path/` | 上传本地文件到云存储，支持大文件并发分片上传。 | 将生成的产物固化到云端。 |
-| `download` | `afs cloud download remote/path/file.csv ./` | 从云存储下载文件到本地沙箱。 | 获取外部数据源进行分析。 |
-| `list` | `afs cloud list remote/path/ --limit 10` | 列出云端目录下的文件列表。 | 探查云存储中的现有资源。 |
+| `cp` | `afs fs cp ./archive.zip remote/path/` | 上传本地文件到云存储，支持大文件并发分片上传。 | 将生成的产物固化到云端。 |
+| `cp` | `afs fs cp remote/path/file.csv ./` | 从云存储下载文件到本地沙箱。 | 获取外部数据源进行分析。 |
+| `ls` | `afs fs ls remote/path/ --limit 10` | 列出云端目录下的文件列表。 | 探查云存储中的现有资源。 |
 
 ### 5.3 配置管理 (`afs config`)
 
@@ -88,7 +87,7 @@ agent-fs/
 ```json
 {
   "success": true,
-  "action": "cloud_upload",
+  "action": "fs_cp",
   "data": {
     "local_path": "/path/to/local/archive.zip",
     "remote_url": "https://cdn.example.com/remote/path/archive.zip",
