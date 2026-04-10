@@ -518,13 +518,7 @@ func runFsCp(src, dst string) error {
 	srcConfig := srcProvider.ConfigInfo()
 	dstConfig := dstProvider.ConfigInfo()
 
-	useNativeCopy := srcConfig.Scheme == dstConfig.Scheme &&
-		srcConfig.Bucket == dstConfig.Bucket &&
-		srcConfig.Endpoint == dstConfig.Endpoint &&
-		srcConfig.AccessKey == dstConfig.AccessKey &&
-		srcConfig.SecretKey == dstConfig.SecretKey &&
-		srcConfig.PathStyle == dstConfig.PathStyle &&
-		srcConfig.UseSSL == dstConfig.UseSSL
+	useNativeCopy := srcConfig.Equals(dstConfig)
 
 	if useNativeCopy {
 		// Use native copy for better performance (copy happens on server side)

@@ -60,6 +60,18 @@ type ProviderConfigInfo struct {
 	UseSSL      bool
 }
 
+// Equals compares two ProviderConfigInfo instances for equality
+// Returns true if all fields are identical
+func (c ProviderConfigInfo) Equals(other ProviderConfigInfo) bool {
+	return c.Scheme == other.Scheme &&
+		c.Bucket == other.Bucket &&
+		c.Endpoint == other.Endpoint &&
+		c.AccessKey == other.AccessKey &&
+		c.SecretKey == other.SecretKey &&
+		c.PathStyle == other.PathStyle &&
+		c.UseSSL == other.UseSSL
+}
+
 // StorageProvider is the unified interface for all storage backends
 type StorageProvider interface {
 	// Scheme returns the URI scheme this provider handles (e.g., "file", "s3", "r2")

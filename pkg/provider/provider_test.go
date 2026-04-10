@@ -99,6 +99,96 @@ func (e *testError) Error() string {
 	return e.msg
 }
 
+func TestProviderConfigInfoEquals(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        ProviderConfigInfo
+		b        ProviderConfigInfo
+		expected bool
+	}{
+		{
+			name:     "identical configs",
+			a:        ProviderConfigInfo{Scheme: "s3", Bucket: "test", Endpoint: "s3.amazonaws.com", AccessKey: "key1", SecretKey: "secret1", PathStyle: true, UseSSL: true},
+			b:        ProviderConfigInfo{Scheme: "s3", Bucket: "test", Endpoint: "s3.amazonaws.com", AccessKey: "key1", SecretKey: "secret1", PathStyle: true, UseSSL: true},
+			expected: true,
+		},
+		{
+			name:     "empty configs",
+			a:        ProviderConfigInfo{},
+			b:        ProviderConfigInfo{},
+			expected: true,
+		},
+		{
+			name:     "different scheme",
+			a:        ProviderConfigInfo{Scheme: "s3"},
+			b:        ProviderConfigInfo{Scheme: "oss"},
+			expected: false,
+		},
+		{
+			name:     "different bucket",
+			a:        ProviderConfigInfo{Scheme: "s3", Bucket: "test1"},
+			b:        ProviderConfigInfo{Scheme: "s3", Bucket: "test2"},
+			expected: false,
+		},
+		{
+			name:     "different endpoint",
+			a:        ProviderConfigInfo{Endpoint: "s3.amazonaws.com"},
+			b:        ProviderConfigInfo{Endpoint: "oss.aliyuncs.com"},
+			expected: false,
+		},
+		{
+			name:     "different access key",
+			a:        ProviderConfigInfo{AccessKey: "key1"},
+			b:        ProviderConfigInfo{AccessKey: "key2"},
+			expected: false,
+		},
+		{
+			name:     "different secret key",
+			a:        ProviderConfigInfo{SecretKey: "secret1"},
+			b:        ProviderConfigInfo{SecretKey: "secret2"},
+			expected: false,
+		},
+		{
+			name:     "different path style",
+			a:        ProviderConfigInfo{PathStyle: true},
+			b:        ProviderConfigInfo{PathStyle: false},
+			expected: false,
+		},
+		{
+			name:     "different use ssl",
+			a:        ProviderConfigInfo{UseSSL: true},
+			b:        ProviderConfigInfo{UseSSL: false},
+			expected: false,
+		},
+		{
+			name:     "file provider configs equal",
+			a:        ProviderConfigInfo{Scheme: "file"},
+			b:        ProviderConfigInfo{Scheme: "file"},
+			expected: true,
+		},
+		{
+			name:     "cephfs provider configs equal",
+			a:        ProviderConfigInfo{Scheme: "cephfs"},
+			b:        ProviderConfigInfo{Scheme: "cephfs"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.a.Equals(tt.b)
+			if result != tt.expected {
+				t.Errorf("Equals() = %v, want %v", result, tt.expected)
+			}
+			// Test symmetry
+			resultReverse := tt.b.Equals(tt.a)
+			if resultReverse != result {
+				t.Errorf("Equals() is not symmetric: a.Equals(b)=%v, b.Equals(a)=%v", result, resultReverse)
+			}
+		})
+	}
+}
+
 func TestFileInfo(t *testing.T) {
 	info := FileInfo{
 		Name:         "test.txt",

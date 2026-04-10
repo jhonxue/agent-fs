@@ -23,6 +23,8 @@ type OSSProvider struct {
 	endpoint  string
 	accessKey string
 	secretKey string
+	pathStyle bool
+	useSSL    bool
 }
 
 // NewOSSProvider creates a new Alibaba Cloud OSS provider
@@ -53,6 +55,8 @@ func NewOSSProvider() (StorageProvider, error) {
 		endpoint:  cfg.Endpoint,
 		accessKey: cfg.AccessKeyID,
 		secretKey: cfg.SecretAccessKey,
+		pathStyle: cfg.PathStyle,
+		useSSL:    cfg.UseSSL,
 	}, nil
 }
 
@@ -194,8 +198,8 @@ func (p *OSSProvider) ConfigInfo() ProviderConfigInfo {
 		Endpoint:  p.endpoint,
 		AccessKey: p.accessKey,
 		SecretKey: p.secretKey,
-		PathStyle: true,
-		UseSSL:    true,
+		PathStyle: p.pathStyle,
+		UseSSL:    p.useSSL,
 	}
 }
 

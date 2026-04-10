@@ -23,6 +23,8 @@ type COSProvider struct {
 	endpoint  string
 	accessKey string
 	secretKey string
+	pathStyle bool
+	useSSL    bool
 }
 
 // NewCOSProvider creates a new Tencent Cloud COS provider
@@ -53,6 +55,8 @@ func NewCOSProvider() (StorageProvider, error) {
 		endpoint:  cfg.Endpoint,
 		accessKey: cfg.AccessKeyID,
 		secretKey: cfg.SecretAccessKey,
+		pathStyle: cfg.PathStyle,
+		useSSL:    cfg.UseSSL,
 	}, nil
 }
 
@@ -194,8 +198,8 @@ func (p *COSProvider) ConfigInfo() ProviderConfigInfo {
 		Endpoint:  p.endpoint,
 		AccessKey: p.accessKey,
 		SecretKey: p.secretKey,
-		PathStyle: false,
-		UseSSL:    true,
+		PathStyle: p.pathStyle,
+		UseSSL:    p.useSSL,
 	}
 }
 
