@@ -239,6 +239,14 @@ func copyDirectory(src, dst string) error {
 	return nil
 }
 
+// ConfigInfo returns the provider configuration for comparison
+// For file provider, only scheme is meaningful
+func (p *FileProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme: "file",
+	}
+}
+
 func init() {
 	// Register the file provider
 	Register("file", NewFileProvider)

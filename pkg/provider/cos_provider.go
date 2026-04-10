@@ -17,9 +17,12 @@ import (
 
 // COSProvider implements StorageProvider for Tencent Cloud COS
 type COSProvider struct {
-	scheme string
-	client *s3client.Client
-	bucket string
+	scheme    string
+	client    *s3client.Client
+	bucket    string
+	endpoint  string
+	accessKey string
+	secretKey string
 }
 
 // NewCOSProvider creates a new Tencent Cloud COS provider
@@ -44,9 +47,12 @@ func NewCOSProvider() (StorageProvider, error) {
 		return nil, err
 	}
 	return &COSProvider{
-		scheme: "cos",
-		client: client,
-		bucket: cfg.Bucket,
+		scheme:    "cos",
+		client:    client,
+		bucket:    cfg.Bucket,
+		endpoint:  cfg.Endpoint,
+		accessKey: cfg.AccessKeyID,
+		secretKey: cfg.SecretAccessKey,
 	}, nil
 }
 
@@ -178,6 +184,19 @@ func (p *COSProvider) Copy(ctx context.Context, srcKey, dstKey string) error {
 
 	_, err := p.client.CopyObject(ctx, input)
 	return err
+}
+
+// ConfigInfo returns the provider configuration for comparison
+func (p *COSProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme:    p.scheme,
+		Bucket:    p.bucket,
+		Endpoint:  p.endpoint,
+		AccessKey: p.accessKey,
+		SecretKey: p.secretKey,
+		PathStyle: false,
+		UseSSL:    true,
+	}
 }
 
 func init() {

@@ -18,9 +18,14 @@ import (
 
 // S3CompatibleProvider implements StorageProvider for S3-compatible cloud storage
 type S3CompatibleProvider struct {
-	scheme  string
-	client  *s3client.Client
-	bucket  string
+	scheme    string
+	client    *s3client.Client
+	bucket    string
+	endpoint  string
+	accessKey string
+	secretKey string
+	pathStyle bool
+	useSSL    bool
 }
 
 // NewS3CompatibleProvider creates a new S3-compatible storage provider
@@ -62,9 +67,14 @@ func NewS3CompatibleProvider(scheme string) (StorageProvider, error) {
 	}
 
 	return &S3CompatibleProvider{
-		scheme: scheme,
-		client: client,
-		bucket: cfg.Bucket,
+		scheme:    scheme,
+		client:    client,
+		bucket:    cfg.Bucket,
+		endpoint:  cfg.Endpoint,
+		accessKey: cfg.AccessKeyID,
+		secretKey: cfg.SecretAccessKey,
+		pathStyle: cfg.PathStyle,
+		useSSL:    cfg.UseSSL,
 	}, nil
 }
 
@@ -240,6 +250,19 @@ func (p *S3CompatibleProvider) HeadObject(ctx context.Context, input *s3.HeadObj
 // CopyObject is a helper to copy an object
 func (p *S3CompatibleProvider) CopyObject(ctx context.Context, input *s3.CopyObjectInput) (*s3.CopyObjectOutput, error) {
 	return p.client.CopyObject(ctx, input)
+}
+
+// ConfigInfo returns the provider configuration for comparison
+func (p *S3CompatibleProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme:    p.scheme,
+		Bucket:    p.bucket,
+		Endpoint:  p.endpoint,
+		AccessKey: p.accessKey,
+		SecretKey: p.secretKey,
+		PathStyle: p.pathStyle,
+		UseSSL:    p.useSSL,
+	}
 }
 
 func init() {

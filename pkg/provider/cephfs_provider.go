@@ -282,6 +282,13 @@ func normalizePath(p string) string {
 	return p
 }
 
+// ConfigInfo returns the provider configuration for comparison
+func (p *CephFSProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme: "cephfs",
+	}
+}
+
 func init() {
 	// Register CephFS provider
 	Register("cephfs", NewCephFSProvider)

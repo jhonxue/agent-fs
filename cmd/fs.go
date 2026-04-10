@@ -513,9 +513,38 @@ func runFsCp(src, dst string) error {
 		dstPath = dstParsed.Key
 	}
 
-	// Always use read-write method to ensure proper permission control.
-	// Even if scheme+bucket+endpoint are the same, they may use different AK/SK credentials,
-	// and CopyObject would not respect the separate permission boundaries.
+	// Check if both providers have identical configuration
+	// If so, we can use the provider's native Copy method for better performance
+	srcConfig := srcProvider.ConfigInfo()
+	dstConfig := dstProvider.ConfigInfo()
+
+	useNativeCopy := srcConfig.Scheme == dstConfig.Scheme &&
+		srcConfig.Bucket == dstConfig.Bucket &&
+		srcConfig.Endpoint == dstConfig.Endpoint &&
+		srcConfig.AccessKey == dstConfig.AccessKey &&
+		srcConfig.SecretKey == dstConfig.SecretKey &&
+		srcConfig.PathStyle == dstConfig.PathStyle &&
+		srcConfig.UseSSL == dstConfig.UseSSL
+
+	if useNativeCopy {
+		// Use native copy for better performance (copy happens on server side)
+		err := dstProvider.Copy(ctx, dstPath, srcPath)
+		if err != nil {
+			return apperr.Wrap(`fs_cp`, apperr.CodeInternal, `failed to copy file using native copy`, err)
+		}
+
+		result := map[string]interface{}{
+			"source":      src,
+			"destination": dst,
+			"success":     true,
+			"method":      "native_copy",
+		}
+
+		return output.PrintSuccess("fs_cp", result)
+	}
+
+	// Fallback: use read-write method to ensure proper permission control
+	// This is needed when providers have different credentials or configurations
 	rc, err := srcProvider.Read(ctx, srcPath)
 	if err != nil {
 		return apperr.Wrap(`fs_cp`, apperr.CodeNotFound, `failed to read source file`, err)
@@ -532,6 +561,7 @@ func runFsCp(src, dst string) error {
 		"source":      src,
 		"destination": dst,
 		"success":     true,
+		"method":      "read_write",
 	}
 
 	return output.PrintSuccess("fs_cp", result)

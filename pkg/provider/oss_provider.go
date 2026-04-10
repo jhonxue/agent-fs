@@ -17,9 +17,12 @@ import (
 
 // OSSProvider implements StorageProvider for Alibaba Cloud OSS
 type OSSProvider struct {
-	scheme string
-	client *s3client.Client
-	bucket string
+	scheme    string
+	client    *s3client.Client
+	bucket    string
+	endpoint  string
+	accessKey string
+	secretKey string
 }
 
 // NewOSSProvider creates a new Alibaba Cloud OSS provider
@@ -44,9 +47,12 @@ func NewOSSProvider() (StorageProvider, error) {
 		return nil, err
 	}
 	return &OSSProvider{
-		scheme: "oss",
-		client: client,
-		bucket: cfg.Bucket,
+		scheme:    "oss",
+		client:    client,
+		bucket:    cfg.Bucket,
+		endpoint:  cfg.Endpoint,
+		accessKey: cfg.AccessKeyID,
+		secretKey: cfg.SecretAccessKey,
 	}, nil
 }
 
@@ -178,6 +184,19 @@ func (p *OSSProvider) Copy(ctx context.Context, srcKey, dstKey string) error {
 
 	_, err := p.client.CopyObject(ctx, input)
 	return err
+}
+
+// ConfigInfo returns the provider configuration for comparison
+func (p *OSSProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme:    p.scheme,
+		Bucket:    p.bucket,
+		Endpoint:  p.endpoint,
+		AccessKey: p.accessKey,
+		SecretKey: p.secretKey,
+		PathStyle: true,
+		UseSSL:    true,
+	}
 }
 
 func init() {

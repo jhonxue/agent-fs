@@ -60,6 +60,12 @@ func (m *mockProvider) Copy(ctx context.Context, srcPath, dstPath string) error 
 	return nil
 }
 
+func (m *mockProvider) ConfigInfo() ProviderConfigInfo {
+	return ProviderConfigInfo{
+		Scheme: m.scheme,
+	}
+}
+
 // mockReadCloser implements a ReadCloser for testing
 type mockReadCloser struct {
 	data   []byte

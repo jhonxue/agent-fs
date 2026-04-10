@@ -49,6 +49,17 @@ func (r *mockReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
+// ProviderConfigInfo contains configuration info for comparison
+type ProviderConfigInfo struct {
+	Scheme      string
+	Bucket      string
+	Endpoint    string
+	AccessKey   string
+	SecretKey   string
+	PathStyle   bool
+	UseSSL      bool
+}
+
 // StorageProvider is the unified interface for all storage backends
 type StorageProvider interface {
 	// Scheme returns the URI scheme this provider handles (e.g., "file", "s3", "r2")
@@ -75,6 +86,10 @@ type StorageProvider interface {
 
 	// Copy copies a file from source to destination within the same provider
 	Copy(ctx context.Context, srcPath, dstPath string) error
+
+	// ConfigInfo returns the provider configuration for comparison
+	// Used to determine if two providers are equivalent (same scheme, bucket, endpoint, credentials)
+	ConfigInfo() ProviderConfigInfo
 }
 
 // ReadCloser combines io.Reader and io.Closer for streaming file data.
