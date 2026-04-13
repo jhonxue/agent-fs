@@ -35,13 +35,13 @@ func CreateProviderFromConfig(ctx context.Context, providerCfg *config.ProviderC
 // CreateS3ProviderFromConfig creates an S3-compatible provider from config
 func CreateS3ProviderFromConfig(providerCfg *config.ProviderConfig, scheme string) (StorageProvider, error) {
 	clientCfg := s3client.Config{
-		Endpoint:    providerCfg.Endpoint,
-		Region:      providerCfg.Region,
-		Bucket:      providerCfg.Bucket,
-		AccessKeyID: providerCfg.AccessKey,
+		Endpoint:        providerCfg.Endpoint,
+		Region:          providerCfg.Region,
+		Bucket:          providerCfg.Bucket,
+		AccessKeyID:     providerCfg.AccessKey,
 		SecretAccessKey: providerCfg.SecretKey,
-		PathStyle:   providerCfg.PathStyle,
-		UseSSL:      providerCfg.UseSSL,
+		PathStyle:       providerCfg.PathStyle,
+		UseSSL:          providerCfg.UseSSL,
 	}
 
 	client, err := s3client.New(context.Background(), clientCfg)
@@ -50,9 +50,14 @@ func CreateS3ProviderFromConfig(providerCfg *config.ProviderConfig, scheme strin
 	}
 
 	return &S3CompatibleProvider{
-		scheme: scheme,
-		client: client,
-		bucket: providerCfg.Bucket,
+		scheme:    scheme,
+		client:    client,
+		bucket:    providerCfg.Bucket,
+		endpoint:  providerCfg.Endpoint,
+		accessKey: providerCfg.AccessKey,
+		secretKey: providerCfg.SecretKey,
+		pathStyle: providerCfg.PathStyle,
+		useSSL:    providerCfg.UseSSL,
 	}, nil
 }
 

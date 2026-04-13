@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 )
@@ -70,6 +71,13 @@ func (c ProviderConfigInfo) Equals(other ProviderConfigInfo) bool {
 		c.SecretKey == other.SecretKey &&
 		c.PathStyle == other.PathStyle &&
 		c.UseSSL == other.UseSSL
+}
+
+// SafeString returns a string representation without sensitive fields
+// Use this for logging and debugging to avoid credential exposure
+func (c ProviderConfigInfo) SafeString() string {
+	return fmt.Sprintf("scheme=%s, bucket=%s, endpoint=%s, pathStyle=%v, useSSL=%v",
+		c.Scheme, c.Bucket, c.Endpoint, c.PathStyle, c.UseSSL)
 }
 
 // StorageProvider is the unified interface for all storage backends

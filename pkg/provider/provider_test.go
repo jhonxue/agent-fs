@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 )
@@ -189,6 +190,45 @@ func TestProviderConfigInfoEquals(t *testing.T) {
 	}
 }
 
+func TestProviderConfigInfoSafeString(t *testing.T) {
+	cfg := ProviderConfigInfo{
+		Scheme:    "s3",
+		Bucket:    "test-bucket",
+		Endpoint:  "s3.amazonaws.com",
+		AccessKey: "secret-access-key", // should not appear in output
+		SecretKey: "super-secret-key",  // should not appear in output
+		PathStyle: true,
+		UseSSL:    true,
+	}
+
+	result := cfg.SafeString()
+
+	// Verify non-sensitive fields are present
+	if !strings.Contains(result, "scheme=s3") {
+		t.Error("SafeString should contain scheme")
+	}
+	if !strings.Contains(result, "bucket=test-bucket") {
+		t.Error("SafeString should contain bucket")
+	}
+	if !strings.Contains(result, "endpoint=s3.amazonaws.com") {
+		t.Error("SafeString should contain endpoint")
+	}
+
+	// Verify sensitive fields are NOT present
+	if strings.Contains(result, "secret-access-key") {
+		t.Error("SafeString should NOT contain AccessKey")
+	}
+	if strings.Contains(result, "super-secret-key") {
+		t.Error("SafeString should NOT contain SecretKey")
+	}
+	if strings.Contains(result, "AccessKey") {
+		t.Error("SafeString should NOT contain AccessKey field name")
+	}
+	if strings.Contains(result, "SecretKey") {
+		t.Error("SafeString should NOT contain SecretKey field name")
+	}
+}
+
 func TestFileInfo(t *testing.T) {
 	info := FileInfo{
 		Name:         "test.txt",
@@ -235,4 +275,124 @@ func TestReadCloser(t *testing.T) {
 	if err != nil {
 		t.Errorf("Close() error = %v", err)
 	}
+}
+
+// TestOSSProviderScheme tests that OSSProvider would return "oss" scheme
+func TestOSSProviderScheme(t *testing.T) {
+	// Verify OSSProvider type can be created (it embeds S3BaseProvider)
+	// The actual provider creation requires environment variables,
+	// so we test the type structure and interface compliance
+	var _ StorageProvider = (*OSSProvider)(nil)
+
+	// Verify OSSProvider has S3BaseProvider embedded
+	provider := &OSSProvider{}
+	if provider.S3BaseProvider != nil {
+		t.Error("New OSSProvider should have nil S3BaseProvider before initialization")
+	}
+}
+
+// TestCOSProviderScheme tests that COSProvider would return "cos" scheme
+func TestCOSProviderScheme(t *testing.T) {
+	// Verify COSProvider type can be created (it embeds S3BaseProvider)
+	// The actual provider creation requires environment variables,
+	// so we test the type structure and interface compliance
+	var _ StorageProvider = (*COSProvider)(nil)
+
+	// Verify COSProvider has S3BaseProvider embedded
+	provider := &COSProvider{}
+	if provider.S3BaseProvider != nil {
+		t.Error("New COSProvider should have nil S3BaseProvider before initialization")
+	}
+}
+
+// TestS3BaseProviderImplementsInterface verifies S3BaseProvider implements StorageProvider
+func TestS3BaseProviderImplementsInterface(t *testing.T) {
+	// Compile-time check that S3BaseProvider implements StorageProvider
+	var _ StorageProvider = (*S3BaseProvider)(nil)
+}
+
+// TestOSSProviderMissingEnv tests OSS provider creation with missing environment variables
+func TestOSSProviderMissingEnv(t *testing.T) {
+	// This should fail because OSS environment variables are not set
+	_, err := NewOSSProvider()
+	if err == nil {
+		t.Error("NewOSSProvider() should fail without OSS environment variables")
+	}
+}
+
+// TestCOSProviderMissingEnv tests COS provider creation with missing environment variables
+func TestCOSProviderMissingEnv(t *testing.T) {
+	// This should fail because COS environment variables are not set
+	_, err := NewCOSProvider()
+	if err == nil {
+		t.Error("NewCOSProvider() should fail without COS environment variables")
+	}
+}
+
+// TestOSSProviderRegistration tests that OSS provider is registered
+func TestOSSProviderRegistration(t *testing.T) {
+	// Check that OSS provider is registered by checking supported schemes
+	schemes := SupportedSchemes()
+	found := false
+	for _, s := range schemes {
+		if s == "oss" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("OSS provider should be registered in supported schemes")
+	}
+}
+
+// TestCOSProviderRegistration tests that COS provider is registered
+func TestCOSProviderRegistration(t *testing.T) {
+	// Check that COS provider is registered by checking supported schemes
+	schemes := SupportedSchemes()
+	found := false
+	for _, s := range schemes {
+		if s == "cos" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("COS provider should be registered in supported schemes")
+	}
+}
+
+// TestOSSProviderErrorMessages tests that OSS provider returns correct error messages
+func TestOSSProviderErrorMessages(t *testing.T) {
+	_, err := NewOSSProvider()
+	if err == nil {
+		t.Error("NewOSSProvider() should return error without environment variables")
+	}
+
+	errMsg := err.Error()
+	if !containsAny(errMsg, []string{"OSS_ENDPOINT", "OSS_BUCKET"}) {
+		t.Errorf("Error message should mention OSS environment variables, got: %s", errMsg)
+	}
+}
+
+// TestCOSProviderErrorMessages tests that COS provider returns correct error messages
+func TestCOSProviderErrorMessages(t *testing.T) {
+	_, err := NewCOSProvider()
+	if err == nil {
+		t.Error("NewCOSProvider() should return error without environment variables")
+	}
+
+	errMsg := err.Error()
+	if !containsAny(errMsg, []string{"COS_ENDPOINT", "COS_BUCKET"}) {
+		t.Errorf("Error message should mention COS environment variables, got: %s", errMsg)
+	}
+}
+
+// containsAny checks if s contains any of the substrings
+func containsAny(s string, substrs []string) bool {
+	for _, substr := range substrs {
+		if strings.Contains(s, substr) {
+			return true
+		}
+	}
+	return false
 }
