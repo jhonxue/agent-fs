@@ -1,5 +1,10 @@
 package permission
 
+import (
+	"path/filepath"
+	"sync"
+)
+
 // RoleConditions 定义角色的约束条件
 type RoleConditions struct {
 	// 路径前缀约束
@@ -23,6 +28,18 @@ type Role struct {
 
 	// 约束条件（可选）
 	Conditions *RoleConditions `mapstructure:"conditions"`
+
+	// 缓存初始化同步锁（确保线程安全的延迟初始化）
+	initOnce sync.Once
+	// 缓存读写锁（保护 permSet、providerSet、bucketSet 的并发访问）
+	cacheMu sync.RWMutex
+
+	// 权限集合缓存（避免每次检查时遍历）
+	permSet map[Permission]struct{}
+	// Provider 集合缓存
+	providerSet map[string]struct{}
+	// Bucket 集合缓存
+	bucketSet map[string]struct{}
 }
 
 // RoleBinding 将角色绑定到上下文
@@ -49,14 +66,39 @@ func NewRoleFromType(name string, roleType RoleType) *Role {
 	}
 }
 
+// ensurePermSet 确保缓存已初始化（使用 sync.Once 确保线程安全）
+func (r *Role) ensurePermSet() {
+	r.initOnce.Do(func() {
+		r.permSet = make(map[Permission]struct{}, len(r.Permissions))
+		for _, p := range r.Permissions {
+			r.permSet[p] = struct{}{}
+		}
+
+		// 初始化约束条件缓存
+		if r.Conditions != nil {
+			if len(r.Conditions.Provider) > 0 {
+				r.providerSet = make(map[string]struct{}, len(r.Conditions.Provider))
+				for _, p := range r.Conditions.Provider {
+					r.providerSet[p] = struct{}{}
+				}
+			}
+			if len(r.Conditions.Bucket) > 0 {
+				r.bucketSet = make(map[string]struct{}, len(r.Conditions.Bucket))
+				for _, b := range r.Conditions.Bucket {
+					r.bucketSet[b] = struct{}{}
+				}
+			}
+		}
+	})
+}
+
 // HasPermission 检查角色是否具有指定权限
 func (r *Role) HasPermission(p Permission) bool {
-	for _, perm := range r.Permissions {
-		if perm == p {
-			return true
-		}
-	}
-	return false
+	r.ensurePermSet()
+	r.cacheMu.RLock()
+	defer r.cacheMu.RUnlock()
+	_, ok := r.permSet[p]
+	return ok
 }
 
 // HasPermissionWithContext 检查角色是否具有指定权限，并考虑约束条件
@@ -72,9 +114,12 @@ func (r *Role) HasPermissionWithContext(p Permission, path, provider, bucket str
 
 	// 检查路径约束
 	if len(r.Conditions.PathPrefix) > 0 {
+		// 规范化路径，防止路径穿越攻击
+		normalizedPath := filepath.Clean(path)
 		matched := false
 		for _, prefix := range r.Conditions.PathPrefix {
-			if len(path) >= len(prefix) && path[:len(prefix)] == prefix {
+			normalizedPrefix := filepath.Clean(prefix)
+			if len(normalizedPath) >= len(normalizedPrefix) && normalizedPath[:len(normalizedPrefix)] == normalizedPrefix {
 				matched = true
 				break
 			}
@@ -84,32 +129,24 @@ func (r *Role) HasPermissionWithContext(p Permission, path, provider, bucket str
 		}
 	}
 
-	// 检查 Provider 约束
+	// 检查 Provider 约束（使用缓存的 map 将 O(n) 优化为 O(1)）
 	if len(r.Conditions.Provider) > 0 {
-		matched := false
-		for _, p := range r.Conditions.Provider {
-			if p == provider {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		r.cacheMu.RLock()
+		if _, ok := r.providerSet[provider]; !ok {
+			r.cacheMu.RUnlock()
 			return false
 		}
+		r.cacheMu.RUnlock()
 	}
 
-	// 检查 Bucket 约束
+	// 检查 Bucket 约束（使用缓存的 map 将 O(n) 优化为 O(1)）
 	if len(r.Conditions.Bucket) > 0 && bucket != "" {
-		matched := false
-		for _, b := range r.Conditions.Bucket {
-			if b == bucket {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		r.cacheMu.RLock()
+		if _, ok := r.bucketSet[bucket]; !ok {
+			r.cacheMu.RUnlock()
 			return false
 		}
+		r.cacheMu.RUnlock()
 	}
 
 	return true
