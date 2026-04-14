@@ -13,6 +13,7 @@ const (
 	CodeArchive       = `ERR_ARCHIVE`
 	CodeConfig        = `ERR_CONFIG`
 	CodeInternal      = `ERR_INTERNAL`
+	CodePermission    = `ERR_PERMISSION`  // 新增：权限错误
 )
 
 type Error struct {

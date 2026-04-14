@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/geekjourneyx/agent-fs/pkg/permission"
 )
 
 // FileInfo represents metadata about a file or object
@@ -110,6 +112,16 @@ type StorageProvider interface {
 	// ConfigInfo returns the provider configuration for comparison
 	// Used to determine if two providers are equivalent (same scheme, bucket, endpoint, credentials)
 	ConfigInfo() ProviderConfigInfo
+}
+
+// PermissionChecker 可选接口，提供者可以实现权限检查
+// 如果提供者实现了此接口，将优先使用提供者的权限检查
+type PermissionChecker interface {
+	// SupportPermissionCheck 返回是否支持权限检查
+	SupportPermissionCheck() bool
+
+	// CheckPermission 检查特定操作权限
+	CheckPermission(ctx context.Context, op permission.Permission, path string) (bool, error)
 }
 
 // ReadCloser combines io.Reader and io.Closer for streaming file data.

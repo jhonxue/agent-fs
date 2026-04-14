@@ -15,6 +15,7 @@ import (
 	"github.com/geekjourneyx/agent-fs/pkg/cloud"
 	"github.com/geekjourneyx/agent-fs/pkg/config"
 	"github.com/geekjourneyx/agent-fs/pkg/output"
+	"github.com/geekjourneyx/agent-fs/pkg/permission"
 	"github.com/geekjourneyx/agent-fs/pkg/provider"
 	"github.com/geekjourneyx/agent-fs/pkg/s3client"
 	"github.com/geekjourneyx/agent-fs/pkg/sandbox"
@@ -22,12 +23,99 @@ import (
 )
 
 var (
-	fsReadHead    int64
-	fsReadTail    int64
-	fsReadBytes   int64
-	fsURLExpires  int64
-	fsURLPublic   bool
+	fsReadHead   int64
+	fsReadTail   int64
+	fsReadBytes  int64
+	fsURLExpires int64
+	fsURLPublic  bool
+	fsUser       string // 用户身份，用于权限检查
 )
+
+// getEffectiveUser 获取当前用户身份
+// 优先使用命令行参数，然后使用环境变量 AFS_USER
+func getEffectiveUser() string {
+	// 如果命令行参数已设置，优先使用
+	if fsUser != "" {
+		return fsUser
+	}
+	// 回退到环境变量
+	if envUser := os.Getenv("AFS_USER"); envUser != "" {
+		return envUser
+	}
+	return "anonymous"
+}
+
+// checkPermission 检查权限并返回错误
+// 当权限控制未启用时，默认允许所有操作
+// 注意：permission.Default() 内部使用 sync.Once 确保线程安全
+// 如果 provider 实现了 PermissionChecker 接口，优先使用 provider 的权限检查
+func checkPermission(ctx context.Context, op permission.Permission, path string, scheme, bucket string) error {
+	permManager := permission.Default()
+
+	// 获取有效用户身份（优先命令行参数，然后环境变量）
+	currentUser := getEffectiveUser()
+
+	// 首先尝试使用 provider 的权限检查（如果实现）
+	p, err := provider.Get(ctx, scheme)
+	if err == nil {
+		if pc, ok := p.(provider.PermissionChecker); ok {
+			if pc.SupportPermissionCheck() {
+				allowed, perr := pc.CheckPermission(ctx, op, path)
+				if perr != nil {
+					return apperr.New("permission", apperr.CodePermission, perr.Error())
+				}
+				if allowed {
+					// Provider 权限检查通过，直接返回
+					return nil
+				}
+				// Provider 拒绝，继续使用默认管理器检查
+				return apperr.New("permission", apperr.CodePermission,
+					fmt.Sprintf("permission denied by provider: %s operation on %s", op, path))
+			}
+		}
+	}
+
+	// 创建权限检查请求，包含用户上下文
+	req := permission.Request{
+		Operation:   op,
+		TargetPath:  path,
+		Provider:    scheme,
+		Bucket:      bucket,
+		CurrentUser: currentUser,
+	}
+
+	// 使用 CheckPermission 获取结果
+	result := permManager.CheckPermission(ctx, req)
+
+	// 检查错误或权限被拒绝
+	if !result.Allowed {
+		// 构建详细的错误信息，包含用户、角色、路径和操作信息
+		var reason string
+		if result.Error != nil {
+			reason = result.Error.Error()
+		} else if result.Reason != "" {
+			reason = result.Reason
+		} else {
+			// 使用默认拒绝信息，但提供更多上下文
+			reason = fmt.Sprintf("permission denied: %s operation on %s", op, path)
+		}
+
+		// 如果配置了严格模式，添加更多调试信息
+		cfg := permManager.GetConfig()
+		if cfg != nil && cfg.StrictMode {
+			// 构建详细信息：用户 -> 角色 -> 拒绝原因
+			detailMsg := fmt.Sprintf("user=%s, operation=%s, path=%s, provider=%s, bucket=%s",
+				fsUser, op, path, scheme, bucket)
+			if result.MatchedRule != "" {
+				detailMsg += fmt.Sprintf(", matched_rule=%s", result.MatchedRule)
+			}
+			reason = reason + " (" + detailMsg + ")"
+		}
+
+		return apperr.New("permission", apperr.CodePermission, reason)
+	}
+	return nil
+}
 
 var fsCmd = &cobra.Command{
 	Use:   `fs`,
@@ -131,6 +219,24 @@ func parsePath(raw string) (*uri.URI, error) {
 	return parsed, nil
 }
 
+// getFilePath 获取路径，根据 scheme 处理 file 和 cephfs 特殊情况
+// 注意：file scheme 使用 sandbox 验证保证安全
+func getFilePath(parsed *uri.URI) (string, error) {
+	switch parsed.Scheme {
+	case "file":
+		// Sandbox validation for file scheme to prevent path traversal attacks
+		resolvedPath, err := sandbox.ResolveReadPath(parsed.Path)
+		if err != nil {
+			return "anonymous", err // sandbox error already wrapped with proper error code
+		}
+		return resolvedPath, nil
+	case "cephfs":
+		return parsed.Path, nil
+	default:
+		return parsed.Key, nil
+	}
+}
+
 func init() {
 	// Read flags
 	fsReadCmd.Flags().Int64VarP(&fsReadHead, "head", "n", 0, "Read first N lines")
@@ -143,6 +249,10 @@ func init() {
 	// URL flags
 	fsUrlCmd.Flags().Int64Var(&fsURLExpires, "expires", 900, "Expiration time in seconds (default: 900, 15 minutes)")
 	fsUrlCmd.Flags().BoolVar(&fsURLPublic, "public", false, "Generate public URL instead of presigned URL")
+
+	// Permission flags - apply to all fs subcommands
+	// Can also use AFS_USER environment variable
+	fsCmd.Flags().StringVar(&fsUser, "user", os.Getenv("AFS_USER"), "User identity for permission check")
 
 	// Add subcommands
 	fsCmd.AddCommand(fsReadCmd)
@@ -163,27 +273,22 @@ func runFsRead(path string) error {
 	}
 
 	ctx := context.Background()
+
+	// 获取路径（包含 sandbox 安全验证）
+	filePath, err := getFilePath(parsed)
+	if err != nil {
+		return err
+	}
+
+	// 权限检查：读取权限
+	if err := checkPermission(ctx, permission.PermissionRead, filePath, parsed.Scheme, parsed.Bucket); err != nil {
+		return err
+	}
 	p, err := provider.Get(ctx, parsed.Scheme)
 	if err != nil {
 		available := provider.SupportedSchemes()
 		return apperr.New(`fs_read`, apperr.CodeNotFound,
 			fmt.Sprintf(`provider not found for scheme: %s. Available: %v`, parsed.Scheme, available))
-	}
-
-	// Get the path based on scheme
-	var filePath string
-	switch parsed.Scheme {
-	case "file":
-		// Sandbox validation for file scheme to prevent path traversal attacks
-		resolvedPath, err := sandbox.ResolveReadPath(parsed.Path)
-		if err != nil {
-			return err // sandbox error already wrapped with proper error code
-		}
-		filePath = resolvedPath
-	case "cephfs":
-		filePath = parsed.Path
-	default:
-		filePath = parsed.Key
 	}
 
 	// Check flags in order: bytes, tail, head
@@ -425,24 +530,20 @@ func runFsLs(path string) error {
 	}
 
 	ctx := context.Background()
+
+	// 获取路径（包含 sandbox 安全验证）
+	filePath, err := getFilePath(parsed)
+	if err != nil {
+		return err
+	}
+
+	// 权限检查：读取权限（列出文件需要读取权限）
+	if err := checkPermission(ctx, permission.PermissionRead, filePath, parsed.Scheme, parsed.Bucket); err != nil {
+		return err
+	}
 	p, err := provider.Get(ctx, parsed.Scheme)
 	if err != nil {
 		return apperr.New(`fs_ls`, apperr.CodeNotFound, fmt.Sprintf(`provider not found for scheme: %s`, parsed.Scheme))
-	}
-
-	var filePath string
-	switch parsed.Scheme {
-	case "file":
-		// Sandbox validation for file scheme to prevent path traversal attacks
-		resolvedPath, err := sandbox.ResolveReadPath(parsed.Path)
-		if err != nil {
-			return err // sandbox error already wrapped with proper error code
-		}
-		filePath = resolvedPath
-	case "cephfs":
-		filePath = parsed.Path
-	default:
-		filePath = parsed.Key
 	}
 
 	files, err := p.List(ctx, filePath)
@@ -513,6 +614,16 @@ func runFsCp(src, dst string) error {
 		dstPath = dstParsed.Key
 	}
 
+	// 权限检查：源路径读取权限
+	if err := checkPermission(ctx, permission.PermissionRead, srcPath, srcParsed.Scheme, srcParsed.Bucket); err != nil {
+		return err
+	}
+
+	// 权限检查：目标路径写入权限
+	if err := checkPermission(ctx, permission.PermissionWrite, dstPath, dstParsed.Scheme, dstParsed.Bucket); err != nil {
+		return err
+	}
+
 	// Check if both providers have identical configuration
 	// If so, we can use the provider's native Copy method for better performance
 	srcConfig := srcProvider.ConfigInfo()
@@ -569,24 +680,20 @@ func runFsInfo(path string) error {
 	}
 
 	ctx := context.Background()
+
+	// 获取路径（包含 sandbox 安全验证）
+	filePath, err := getFilePath(parsed)
+	if err != nil {
+		return err
+	}
+
+	// 权限检查：读取权限（获取文件信息需要读取权限）
+	if err := checkPermission(ctx, permission.PermissionRead, filePath, parsed.Scheme, parsed.Bucket); err != nil {
+		return err
+	}
 	p, err := provider.Get(ctx, parsed.Scheme)
 	if err != nil {
 		return apperr.New(`fs_info`, apperr.CodeNotFound, fmt.Sprintf(`provider not found for scheme: %s`, parsed.Scheme))
-	}
-
-	var filePath string
-	switch parsed.Scheme {
-	case "file":
-		// Sandbox validation for file scheme to prevent path traversal attacks
-		resolvedPath, err := sandbox.ResolveReadPath(parsed.Path)
-		if err != nil {
-			return err // sandbox error already wrapped with proper error code
-		}
-		filePath = resolvedPath
-	case "cephfs":
-		filePath = parsed.Path
-	default:
-		filePath = parsed.Key
 	}
 
 	info, err := p.Stat(ctx, filePath)
@@ -644,7 +751,14 @@ func runFsURL(pathArg string) error {
 	case "file", "cephfs":
 		return apperr.New(`fs_url`, apperr.CodeInvalidArg, `URL generation is not supported for local filesystem`)
 	}
-	
+
+	ctx := context.Background()
+
+	// 权限检查：读取权限（生成 URL 需要读取权限）
+	if err := checkPermission(ctx, permission.PermissionRead, parsed.Key, parsed.Scheme, parsed.Bucket); err != nil {
+		return err
+	}
+
 	// Load provider config
 	providerName := resolveFsProvider(parsed.Scheme)
 	cfg, err := loadFsProviderConfig(providerName)
@@ -733,7 +847,7 @@ func pickStringFs(prefixes []string, keys ...string) string {
 			}
 		}
 	}
-	return ""
+	return "anonymous"
 }
 
 func pickBoolFs(prefixes []string, defaultValue bool, keys ...string) bool {
