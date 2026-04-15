@@ -60,6 +60,8 @@ func Parse(raw string) (*URI, error) {
 		return parseCloudURI(scheme, rest)
 	case "cephfs":
 		return parseCephFSURI(rest)
+	case "hdfs":
+		return parseHDFSURI(rest)
 	case "gcs", "azure", "ceph":
 		return nil, fmt.Errorf("scheme %q not yet implemented: registry pending provider registration", scheme)
 	default:
@@ -436,6 +438,65 @@ func parseCephFSURI(rest string) (*URI, error) {
 
 	return &URI{
 		Scheme: "cephfs",
+		Path:   key,
+		Key:    key,
+	}, nil
+}
+
+// parseHDFSURI handles HDFS URIs (hdfs://namenode:port/path)
+// HDFS uses a Namenode address and path, similar to CephFS
+func parseHDFSURI(rest string) (*URI, error) {
+	// Parse format: namenode:port/path or just /path
+	var host string
+	var port int
+	var key string
+
+	// Check if there's a host:port prefix
+	if idx := strings.Index(rest, "/"); idx != -1 {
+		// Has path component
+		hostPort := rest[:idx]
+		key = rest[idx:]
+		if idx2 := strings.Index(hostPort, ":"); idx2 != -1 {
+			host = hostPort[:idx2]
+			var err error
+			port, err = strconv.Atoi(hostPort[idx2+1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid port in HDFS URI: %w", err)
+			}
+		} else {
+			host = hostPort
+		}
+	} else {
+		// No path, treat entire rest as host:port or path
+		if idx := strings.Index(rest, ":"); idx != -1 {
+			host = rest[:idx]
+			var err error
+			port, err = strconv.Atoi(rest[idx+1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid port in HDFS URI: %w", err)
+			}
+		} else {
+			// Just a path, no host
+			key = rest
+		}
+	}
+
+	// Ensure path starts with /
+	if key != "" && !strings.HasPrefix(key, "/") {
+		key = "/" + key
+	}
+
+	// Handle query string
+	if key != "" {
+		if idx := strings.Index(key, "?"); idx != -1 {
+			key = key[:idx]
+		}
+	}
+
+	return &URI{
+		Scheme: "hdfs",
+		Host:   host,
+		Port:   port,
 		Path:   key,
 		Key:    key,
 	}, nil
