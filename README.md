@@ -1153,8 +1153,3 @@ afs fs read large.bin --bytes 1024
 ---
 
 ## Author
-
-**[geekjourneyx](https://geekjourney.dev)**
-
-- **X (Twitter)**: https://x.com/seekjourney
-- **公众号**: 极客杰尼

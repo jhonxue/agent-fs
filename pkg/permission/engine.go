@@ -309,12 +309,16 @@ func NewEngine() *Engine {
 		roles:      make(map[string]*Role),
 		regexCache: NewLRUCache(maxRegexCacheSize),
 		ruleIndex:  NewRuleIndex(),
+		metrics:    NoopMetrics, // 默认使用 NoopMetrics
 	}
 
 	// 初始化统一评估器（复用 Engine 的匹配逻辑以维持等价行为）
-	engine.evaluator = NewRuleEvaluator(func(rule Rule, req Request) bool {
-		return engine.matchRule(rule, req)
-	})
+	engine.evaluator = NewRuleEvaluator(
+		func(rule Rule, req Request) bool {
+			return engine.matchRule(rule, req)
+		},
+		WithMetrics(engine.metrics), // 传递 metrics 给 evaluator
+	)
 
 	// 加载默认策略
 	_ = engine.LoadPolicies(DefaultPolicies)
@@ -330,6 +334,7 @@ func (e *Engine) SetEnableRuleIndexExecution(enabled bool) {
 }
 
 // SetMetrics 设置可观测性指标上报接口
+// 同时同步更新 evaluator 的 metrics，以保持指标一致性
 func (e *Engine) SetMetrics(sink MetricsSink) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -337,6 +342,12 @@ func (e *Engine) SetMetrics(sink MetricsSink) {
 		e.metrics = sink
 	} else {
 		e.metrics = NoopMetrics
+	}
+	// 同步更新 evaluator 的 metrics（在锁内执行，确保线程安全）
+	// 注意：当前设计假设 evaluator 始终为 *RuleEvaluator 类型，
+	// 若未来 evaluator 可能为其他 Evaluator 实现，建议改为接口方法
+	if re, ok := e.evaluator.(*RuleEvaluator); ok {
+		re.SetMetrics(e.metrics)
 	}
 }
 

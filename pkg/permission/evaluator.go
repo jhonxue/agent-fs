@@ -106,6 +106,15 @@ func NewRuleEvaluator(match RuleMatchFunc, opts ...EvalOption) *RuleEvaluator {
 	}
 }
 
+// SetMetrics 设置可观测性指标上报接口
+func (ev *RuleEvaluator) SetMetrics(sink MetricsSink) {
+	if sink != nil {
+		ev.opts.Metrics = sink
+	} else {
+		ev.opts.Metrics = NoopMetrics
+	}
+}
+
 // Evaluate 遍历候选规则（已按优先级排序），按 Effect 与角色引用作出决策
 func (ev *RuleEvaluator) Evaluate(ctx context.Context, req Request, rules []Rule, roles map[string]*Role) Result {
 	start := time.Now()
