@@ -15,6 +15,8 @@ type ManagerConfig struct {
 	ConfigPath string
 	// 严格模式（无匹配规则时拒绝）
 	StrictMode bool
+	// 是否启用索引驱动评估路径（灰度开关）
+	EnableRuleIndexExecution bool
 }
 
 // Manager 权限管理器
@@ -35,11 +37,16 @@ func NewManager(cfg *ManagerConfig) *Manager {
 		userRoleMapping: make(map[string][]string),
 	}
 
+	// 设置引擎灰度开关
+	m.engine.SetEnableRuleIndexExecution(cfg.EnableRuleIndexExecution)
+
 	// 如果配置了文件路径，尝试加载配置
 	if cfg.ConfigPath != "" {
 		if err := m.LoadFromFile(cfg.ConfigPath); err != nil {
 			// 加载失败使用默认配置
 			m.engine = NewEngine()
+			// 重新设置灰度开关
+			m.engine.SetEnableRuleIndexExecution(cfg.EnableRuleIndexExecution)
 		}
 	}
 
@@ -50,9 +57,10 @@ func NewManager(cfg *ManagerConfig) *Manager {
 func NewManagerWithConfig(cfg *Config) *Manager {
 	m := &Manager{
 		config: &ManagerConfig{
-			Enabled:    cfg.Enabled,
-			ConfigPath: cfg.ConfigPath,
-			StrictMode: cfg.StrictMode,
+			Enabled:                  cfg.Enabled,
+			ConfigPath:               cfg.ConfigPath,
+			StrictMode:               cfg.StrictMode,
+			EnableRuleIndexExecution: cfg.EnableRuleIndexExecution,
 		},
 		engine:          NewEngine(),
 		enabled:         cfg.Enabled,
@@ -71,6 +79,9 @@ func NewManagerWithConfig(cfg *Config) *Manager {
 	if err := m.engine.LoadPolicies(cfg.Policies); err != nil {
 		// 加载失败使用默认策略
 	}
+
+	// 根据配置设置引擎灰度开关
+	m.engine.SetEnableRuleIndexExecution(cfg.EnableRuleIndexExecution)
 
 	return m
 }
@@ -212,6 +223,9 @@ func (m *Manager) LoadFromFile(path string) error {
 	// 更新配置
 	m.config.ConfigPath = path
 	m.enabled = cfg.Enabled
+
+	// 根据配置设置引擎灰度开关
+	m.engine.SetEnableRuleIndexExecution(cfg.EnableRuleIndexExecution)
 
 	return nil
 }

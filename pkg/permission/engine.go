@@ -222,6 +222,66 @@ func (ri *RuleIndex) GetSortedRules() []Rule {
 	return ri.sortedRules
 }
 
+// CandidatesFor 基于请求收敛候选规则集（Provider/Bucket/PathPrefix）
+// 返回的规则已按优先级（Priority 升序）排序；若无候选，则回退到全量已排序规则
+func (ri *RuleIndex) CandidatesFor(req Request) []Rule {
+	ri.mu.RLock()
+	defer ri.mu.RUnlock()
+
+	// 去重集合（按规则名唯一标识）
+	seen := make(map[string]struct{})
+	add := func(r Rule, out *[]Rule) {
+		if _, ok := seen[r.Name]; ok {
+			return
+		}
+		seen[r.Name] = struct{}{}
+		*out = append(*out, r)
+	}
+
+	candidates := make([]Rule, 0, 16)
+
+	// Provider 候选
+	if rs, ok := ri.byProvider[req.Provider]; ok {
+		for _, r := range rs {
+			add(r, &candidates)
+		}
+	}
+
+	// Bucket 候选
+	if req.Bucket != "" {
+		if rs, ok := ri.byBucket[req.Bucket]; ok {
+			for _, r := range rs {
+				add(r, &candidates)
+			}
+		}
+	}
+
+	// PathPrefix 候选（byPathPrefix 已按长度降序排列）
+	if len(ri.byPathPrefix) > 0 {
+		normalizedTarget := pathNormalizer(req.TargetPath)
+		normalizedSource := pathNormalizer(req.SourcePath)
+		for _, pr := range ri.byPathPrefix {
+			prefix := pathNormalizer(pr.prefix)
+			if strings.HasPrefix(normalizedTarget, prefix) || strings.HasPrefix(normalizedSource, prefix) {
+				add(pr.rule, &candidates)
+			}
+		}
+	}
+
+	// 无候选：回退到全量已排序规则（复制返回，避免外部修改内部切片）
+	if len(candidates) == 0 {
+		out := make([]Rule, len(ri.sortedRules))
+		copy(out, ri.sortedRules)
+		return out
+	}
+
+	// 稳定排序：按优先级升序
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Priority < candidates[j].Priority
+	})
+	return candidates
+}
+
 // maxRegexCacheSize 正则表达式缓存最大容量
 const maxRegexCacheSize = 100
 
@@ -234,6 +294,10 @@ type Engine struct {
 	regexCache *LRUCache
 	// 规则索引：加速规则查找
 	ruleIndex *RuleIndex
+	// 统一评估器：基于候选集执行规则评估与角色校验
+	evaluator Evaluator
+	// 是否启用索引驱动的评估路径（灰度开关）
+	enableRuleIndexExecution bool
 }
 
 // NewEngine 创建新的权限引擎
@@ -245,16 +309,39 @@ func NewEngine() *Engine {
 		ruleIndex:  NewRuleIndex(),
 	}
 
+	// 初始化统一评估器（复用 Engine 的匹配逻辑以维持等价行为）
+	engine.evaluator = NewRuleEvaluator(func(rule Rule, req Request) bool {
+		return engine.matchRule(rule, req)
+	})
+
 	// 加载默认策略
 	_ = engine.LoadPolicies(DefaultPolicies)
 
 	return engine
 }
 
+// SetEnableRuleIndexExecution 设置是否启用索引驱动的评估路径（灰度开关）
+func (e *Engine) SetEnableRuleIndexExecution(enabled bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.enableRuleIndexExecution = enabled
+}
+
 // Check 执行权限检查
 func (e *Engine) Check(ctx context.Context, req Request) Result {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
+	// 0. 索引驱动路径（灰度开关）
+	if e.enableRuleIndexExecution && e.evaluator != nil {
+		candidates := e.ruleIndex.CandidatesFor(req)
+		res := e.evaluator.Evaluate(ctx, req, candidates, e.roles)
+		// 若命中具体规则（允许或拒绝），直接返回；否则继续角色检查与默认策略
+		if res.MatchedRule != "" || res.Allowed {
+			return res
+		}
+		// 未命中任何规则，继续走角色与默认逻辑
+	}
 
 	// 1. 规则引擎检查（优先级最高）
 	ruleResult := e.checkRules(req)
@@ -579,6 +666,8 @@ func (e *Engine) RemovePolicy(name string) error {
 		}
 	}
 	e.policies = newPolicies
+	// 重建索引，确保删除策略后已排序规则与内存策略一致
+	e.ruleIndex.Build(e.policies)
 	return nil
 }
 

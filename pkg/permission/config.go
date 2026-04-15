@@ -10,28 +10,30 @@ import (
 // UserRoleMapping 用户到角色的映射
 type UserRoleMapping struct {
 	// 用户名
-	User string `mapstructure:"user"`
+	User string `mapstructure:"user" yaml:"user"`
 	// 角色名称列表
-	Roles []string `mapstructure:"roles"`
+	Roles []string `mapstructure:"roles" yaml:"roles"`
 }
 
 // Config 权限配置
 type Config struct {
 	// 是否启用权限控制
-	Enabled bool `mapstructure:"enabled"`
+	Enabled bool `mapstructure:"enabled" yaml:"enabled"`
 	// 配置文件路径
-	ConfigPath string `mapstructure:"config_path"`
+	ConfigPath string `mapstructure:"config_path" yaml:"config_path"`
 	// 严格模式（无匹配规则时拒绝）
-	StrictMode bool `mapstructure:"strict_mode"`
+	StrictMode bool `mapstructure:"strict_mode" yaml:"strict_mode"`
+	// 是否启用索引驱动的评估路径（灰度开关）
+	EnableRuleIndexExecution bool `mapstructure:"enable_rule_index_execution" yaml:"enable_rule_index_execution"`
 
 	// 角色定义（YAML 中为 roles 节点）
-	Roles []Role `mapstructure:"roles"`
+	Roles []Role `mapstructure:"roles" yaml:"roles"`
 
 	// 用户角色映射（YAML 中为 user_role_mappings 节点）
-	UserRoleMappings []UserRoleMapping `mapstructure:"user_role_mappings"`
+	UserRoleMappings []UserRoleMapping `mapstructure:"user_role_mappings" yaml:"user_role_mappings"`
 
 	// 策略定义（YAML 中为 policies 节点）
-	Policies []Policy `mapstructure:"policies"`
+	Policies []Policy `mapstructure:"policies" yaml:"policies"`
 }
 
 // LoadConfig 从文件加载配置
@@ -102,6 +104,20 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// 验证规则名全局唯一性（包含空名检查）
+	globalRuleNames := make(map[string]bool)
+	for _, policy := range c.Policies {
+		for _, rule := range policy.Rules {
+			if rule.Name == "" {
+				return fmt.Errorf("rule name is required (policy=%s)", policy.Name)
+			}
+			if globalRuleNames[rule.Name] {
+				return fmt.Errorf("duplicate rule name: %s (policy=%s)", rule.Name, policy.Name)
+			}
+			globalRuleNames[rule.Name] = true
+		}
+	}
+
 	// 验证策略中的规则引用
 	roleRefChecker := make(map[string]bool)
 	for _, role := range c.Roles {
@@ -145,10 +161,11 @@ func (c *Config) GetEnabledPolicies() []Policy {
 // CreateDefaultConfig 创建默认配置
 func CreateDefaultConfig() *Config {
 	return &Config{
-		Enabled:     false, // 默认禁用，需要显式启用
-		StrictMode:  true,
-		Roles:       getDefaultRoles(),
-		Policies:    DefaultPolicies,
+		Enabled:                  false, // 默认禁用，需要显式启用
+		StrictMode:               true,
+		EnableRuleIndexExecution: false,
+		Roles:                    getDefaultRoles(),
+		Policies:                 DefaultPolicies,
 	}
 }
 
