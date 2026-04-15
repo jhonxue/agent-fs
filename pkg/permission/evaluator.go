@@ -20,6 +20,10 @@ type Evaluator interface {
 	// 返回:
 	//   Result - 评估结果（包含 Allowed、MatchedRule、Reason 等信息）
 	Evaluate(ctx context.Context, req Request, rules []Rule, roles map[string]*Role) Result
+
+	// SetMetrics 设置可观测性指标上报接口
+	// 用于运行时动态更新 metrics，保持与 Engine 的指标一致性
+	SetMetrics(sink MetricsSink)
 }
 
 // MetricsSink 可观测性接口（空实现可直接使用 NoopMetrics）
@@ -180,6 +184,15 @@ type RoleEvaluator struct {
 // NewRoleEvaluator 创建角色评估器
 func NewRoleEvaluator(opts ...EvalOption) *RoleEvaluator {
 	return &RoleEvaluator{BaseEvaluator: NewBaseEvaluator(opts...)}
+}
+
+// SetMetrics 设置可观测性指标上报接口
+func (ev *RoleEvaluator) SetMetrics(sink MetricsSink) {
+	if sink != nil {
+		ev.opts.Metrics = sink
+	} else {
+		ev.opts.Metrics = NoopMetrics
+	}
 }
 
 // Evaluate 忽略规则集，按请求的 RequestedRoles 对角色映射进行授权判定

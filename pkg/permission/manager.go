@@ -116,11 +116,13 @@ func (m *Manager) SetUserRoleMapping(username string, roles []string) {
 
 // CheckPermission 检查权限
 func (m *Manager) CheckPermission(ctx context.Context, req Request) Result {
+	// 在一次锁操作中读取所有需要的状态，确保一致性
 	m.mu.RLock()
 	enabled := m.enabled
-	userMapping := make(map[string][]string, len(m.userRoleMapping))
-	for k, v := range m.userRoleMapping {
-		userMapping[k] = v
+	var roles []string
+	var hasRoles bool
+	if req.CurrentUser != "" {
+		roles, hasRoles = m.userRoleMapping[req.CurrentUser]
 	}
 	m.mu.RUnlock()
 
@@ -132,14 +134,11 @@ func (m *Manager) CheckPermission(ctx context.Context, req Request) Result {
 		}
 	}
 
-	// 如果请求中包含用户名，尝试映射到角色
-	if req.CurrentUser != "" {
-		if roles, ok := userMapping[req.CurrentUser]; ok && len(roles) > 0 {
-			// 将用户映射的角色添加到请求中
-			newReq := req
-			newReq.RequestedRoles = roles
-			return m.engine.Check(ctx, newReq)
-		}
+	// 如果请求中包含用户名且有映射角色，添加到请求中
+	if hasRoles && len(roles) > 0 {
+		newReq := req
+		newReq.RequestedRoles = roles
+		return m.engine.Check(ctx, newReq)
 	}
 
 	return m.engine.Check(ctx, req)

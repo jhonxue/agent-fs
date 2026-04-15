@@ -343,11 +343,10 @@ func (e *Engine) SetMetrics(sink MetricsSink) {
 	} else {
 		e.metrics = NoopMetrics
 	}
-	// 同步更新 evaluator 的 metrics（在锁内执行，确保线程安全）
-	// 注意：当前设计假设 evaluator 始终为 *RuleEvaluator 类型，
-	// 若未来 evaluator 可能为其他 Evaluator 实现，建议改为接口方法
-	if re, ok := e.evaluator.(*RuleEvaluator); ok {
-		re.SetMetrics(e.metrics)
+	// 通过接口方法同步更新 evaluator 的 metrics
+	// 无需类型断言，所有 Evaluator 实现都必须提供 SetMetrics 方法
+	if e.evaluator != nil {
+		e.evaluator.SetMetrics(e.metrics)
 	}
 }
 
