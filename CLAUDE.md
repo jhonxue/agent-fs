@@ -318,6 +318,8 @@ git push origin vx.x.x
 | `AFS_S3_ACCESS_KEY_ID` | 访问密钥 ID | `xxx` |
 | `AFS_S3_SECRET_ACCESS_KEY` | 访问密钥 | `xxx` |
 | `AFS_S3_CDN_HOST` | CDN 域名 | `https://pub-xxx.r2.dev` |
+| `HDFS_NAMENODE_ADDRS` | HDFS NameNode 地址 | `namenode:8020` |
+| `HDFS_USERNAME` | HDFS 用户名 | `hadoop` |
 
 ### 输出格式
 
@@ -359,6 +361,7 @@ git push origin vx.x.x
 | `b2` | Backblaze B2 | `https://s3.us-west-004.backblazeb2.com` |
 | `wasabi` | Wasabi | `https://s3.wasabisys.com` |
 | `cephfs` | CephFS | N/A（分布式文件系统路径） |
+| `hdfs` | HDFS | `hdfs://namenode:8020`（Hadoop 分布式文件系统） |
 
 ---
 
@@ -376,6 +379,7 @@ git push origin vx.x.x
 - `cos` - 腾讯云 COS
 - `oss` - 阿里云 OSS
 - `cephfs` - CephFS 分布式文件系统
+- `hdfs` - HDFS Hadoop 分布式文件系统
 
 **完整 HTTP/HTTPS URL 支持:**
 - VHost 风格: `https://bucket.s3.amazonaws.com/key`

@@ -37,7 +37,7 @@ afs fs providers  # List supported providers
 
 All operations use the unified `afs fs` command with URI schemes to distinguish local/cloud storage:
 - `file://` - Local filesystem (default)
-- `s3://`, `r2://`, `oss://`, `cos://`, `cephfs://` - Cloud storage providers
+- `s3://`, `r2://`, `oss://`, `cos://`, `cephfs://`, `hdfs://` - Cloud storage providers
 
 | Command | Purpose |
 |---------|---------|
@@ -60,6 +60,7 @@ All operations use URI schemes to distinguish local/cloud storage:
 - `oss://bucket/key` - Aliyun OSS
 - `cos://bucket/key` - Tencent COS
 - `cephfs:///path` - CephFS
+- `hdfs://namenode:8020/path` - HDFS
 
 ### Get file/directory info
 
@@ -400,6 +401,8 @@ Config file locations (priority order):
 - `AFS_S3_BUCKET` - S3 bucket name
 - `AFS_S3_ACCESS_KEY_ID` - S3 access key
 - `AFS_S3_SECRET_ACCESS_KEY` - S3 secret key
+- `HDFS_NAMENODE_ADDRS` - HDFS NameNode addresses (comma-separated)
+- `HDFS_USERNAME` - HDFS username (default: hadoop)
 
 **Config commands**:
 ```bash
@@ -447,6 +450,7 @@ r2:
 | Tencent COS | `cos` | `https://cos.ap-guangzhou.myqcloud.com` | Tencent Cloud Object Storage |
 | Backblaze B2 | `b2` | `https://s3.us-west-004.backblazeb2.com` | B2 S3 compatible |
 | Wasabi | `wasabi` | `https://s3.wasabisys.com` | Wasabi Hot Cloud Storage |
+| HDFS | `hdfs` | `hdfs://namenode:8020` | Hadoop Distributed File System |
 
 **Other S3-compatible storage**:
 

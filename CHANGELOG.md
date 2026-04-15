@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- HDFS storage provider support via RPC protocol (`hdfs://` scheme)
+- New environment variables: `HDFS_NAMENODE_ADDRS`, `HDFS_USERNAME`
+
 ## [1.0.0] - 2026-03-01
 
 ### Added

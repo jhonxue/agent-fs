@@ -74,7 +74,7 @@ afs fs --help
 #### 第一个命令
 
 ```bash
-# 获取文件信息（支持本地、CephFS 和云存储 URI）
+# 获取文件信息（支持本地、CephFS、HDFS 和云存储 URI）
 afs fs info s3://bucket/file.json
 afs fs info /path/to/file.json
 
@@ -82,6 +82,8 @@ afs fs info /path/to/file.json
 afs fs read /var/log/app.log --tail 50
 # 读取 CephFS 文件示例
 afs fs read cephfs:///path/to/file.txt
+# 读取 HDFS 文件示例
+afs fs read hdfs://namenode:8020/path/to/file.txt
 
 # 列出目录/前缀下的文件
 afs fs ls s3://bucket/prefix/
@@ -375,6 +377,7 @@ afs config get s3.endpoint
 | Backblaze B2 | `b2` | `https://s3.us-west-004.backblazeb2.com` | B2 S3 兼容模式 |
 | Wasabi | `wasabi` | `https://s3.wasabisys.com` | Wasabi 热云存储 |
 | CephFS | `cephfs` | `N/A` | 分布式文件系统路径 |
+| HDFS | `hdfs` | `hdfs://namenode:8020` | Hadoop 分布式文件系统 |
 
 查看完整列表：
 
@@ -464,6 +467,38 @@ CephFS 为可选特性，启用条件与依赖如下：
 - 注意事项：
   - CephFS 不支持 URL 生成（`afs fs url`），该能力仅适用于对象存储（S3 兼容）
   - tail 大文件时建议在当前版本优先使用本地文件系统路径
+
+#### HDFS 配置（可选）
+
+HDFS 为可选特性，通过 RPC 协议直连 NameNode：
+
+- **依赖**: 纯 Go 实现，无 CGO 依赖
+- **客户端库**: `github.com/colinmarc/hdfs/v2`
+- **环境变量**:
+  - `HDFS_NAMENODE_ADDRS`: NameNode 地址（默认: `localhost:8020`，逗号分隔多个地址）
+  - `HDFS_USERNAME`: HDFS 用户名（默认: `hadoop`）
+- **URI 格式**: `hdfs://namenode:8020/path/to/file`
+
+**使用示例**:
+
+```bash
+# 设置环境变量
+export HDFS_NAMENODE_ADDRS=namenode1:8020,namenode2:8020
+export HDFS_USERNAME=hadoop
+
+# 读取 HDFS 文件
+afs fs read hdfs://namenode:8020/data/file.txt
+
+# 列出 HDFS 目录
+afs fs ls hdfs://namenode:8020/data/
+
+# 获取文件信息
+afs fs info hdfs://namenode:8020/data/file.txt
+```
+
+**注意事项**:
+- HDFS 不支持 URL 生成（`afs fs url`），该能力仅适用于对象存储（S3 兼容）
+- NameNode RPC 端口通常为 8020 或 9000（非 DataNode 数据传输端口 9866）
 
 ---
 

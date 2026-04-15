@@ -25,7 +25,7 @@ type HDFSProvider struct {
 func NewHDFSProvider() (StorageProvider, error) {
 	addrs := os.Getenv("HDFS_NAMENODE_ADDRS")
 	if addrs == "" {
-		addrs = "localhost:9866"
+		addrs = "localhost:8020"
 	}
 
 	username := os.Getenv("HDFS_USERNAME")

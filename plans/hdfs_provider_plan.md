@@ -9,7 +9,7 @@
 - **连接方式**: RPC 协议（直连 NameNode）
 - **客户端库**: `github.com/colinmarc/hdfs/v2`（纯 Go 实现）
 - **无 CGO 依赖**: 纯 Go 实现
-- **默认端口**: 9866（HDFS RPC 端口）
+- **默认端口**: 8020（NameNode RPC 端口，非 DataNode 数据传输端口 9866）
 
 ## 架构设计
 
@@ -21,8 +21,8 @@ graph TB
     end
     
     subgraph "Hadoop Cluster"
-        HDFSProvider -- RPC --> NN[NameNode]
-        NN -- Data transfer --> DN[DataNode]
+        HDFSProvider -- RPC port 8020 --> NN[NameNode]
+        NN -- Data transfer port 9866 --> DN[DataNode]
     end
 ```
 
@@ -66,7 +66,7 @@ type HDFSProvider struct {
 ### 4. 配置管理
 
 环境变量配置：
-- `HDFS_NAMENODE_ADDRS`: NameNode 地址（默认: `localhost:9866`，RPC 端口）
+- `HDFS_NAMENODE_ADDRS`: NameNode 地址（默认: `localhost:8020`，NameNode RPC 端口）
 - `HDFS_USERNAME`: HDFS 用户名（默认: `hadoop`）
 
 ### 5. URI Parser 支持
@@ -79,7 +79,7 @@ case "hdfs":
     return parseHDFSURI(rest)
 ```
 
-URI 格式: `hdfs://namenode:9866/path/to/file`
+URI 格式: `hdfs://namenode:8020/path/to/file`
 
 ### 6. 注册 Provider
 
