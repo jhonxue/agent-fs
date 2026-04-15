@@ -11,7 +11,7 @@ CLI tool for AI Agents to perform local file operations and cloud storage synchr
 
 **Install**:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jhonxue/agent-fs/main/scripts/install.sh | bash
 ```
 
 **Basic usage**:

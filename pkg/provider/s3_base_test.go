@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 // TestNewS3BaseProviderValidation tests the configuration validation in NewS3BaseProvider

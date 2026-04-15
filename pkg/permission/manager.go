@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/geekjourneyx/agent-fs/pkg/apperr"
+	"github.com/jhonxue/agent-fs/pkg/apperr"
 )
 
 // ManagerConfig 权限管理器配置

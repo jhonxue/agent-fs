@@ -62,29 +62,31 @@
 
 ### 2.1 新建文件列表（pkg/permission/）
 
-| 文件 | 描述 | 优先级 |
-|------|------|--------|
-| [`pkg/permission/types.go`](pkg/permission/types.go) | 权限类型定义：Permission、Effect、Role | P0 |
-| [`pkg/permission/rule.go`](pkg/permission/rule.go) | 规则结构定义：Rule、Policy、RuleMatchConditions | P0 |
-| [`pkg/permission/role.go`](pkg/permission/role.go) | **新增**：角色结构定义：Role、RoleBinding | P0 |
-| [`pkg/permission/request.go`](pkg/permission/request.go) | 权限检查请求和结果结构 | P0 |
-| [`pkg/permission/checker.go`](pkg/permission/checker.go) | PermissionChecker 接口定义 | P0 |
-| [`pkg/permission/engine.go`](pkg/permission/engine.go) | 规则匹配引擎实现 | P0 |
-| [`pkg/permission/rbac.go`](pkg/permission/rbac.go) | **新增**：角色权限评估器 | P1 |
-| [`pkg/permission/config.go`](pkg/permission/config.go) | 权限配置加载器（支持规则+角色） | P1 |
-| [`pkg/permission/manager.go`](pkg/permission/manager.go) | 权限管理器主类 | P1 |
-| [`pkg/permission/context.go`](pkg/permission/context.go) | 操作上下文构建器 | P2 |
-| [`pkg/permission/errors.go`](pkg/permission/errors.go) | 权限相关错误定义 | P2 |
+| 文件 | 描述 | 优先级 | 状态 |
+|------|------|--------|------|
+| [`pkg/permission/types.go`](pkg/permission/types.go) | 权限类型定义：Permission、Effect、Role | P0 | ✅ 已完成 |
+| [`pkg/permission/rule.go`](pkg/permission/rule.go) | 规则结构定义：Rule、Policy、RuleMatchConditions | P0 | ✅ 已完成 |
+| [`pkg/permission/role.go`](pkg/permission/role.go) | 角色结构定义：Role、RoleBinding | P0 | ✅ 已完成 |
+| [`pkg/permission/request.go`](pkg/permission/request.go) | 权限检查请求和结果结构 | P0 | ✅ 已完成 |
+| [`pkg/permission/checker.go`](pkg/permission/checker.go) | PermissionChecker 接口定义 | P0 | ✅ 已完成 |
+| [`pkg/permission/engine.go`](pkg/permission/engine.go) | 规则匹配引擎实现 | P0 | ✅ 已完成 |
+| [`pkg/permission/rbac.go`](pkg/permission/rbac.go) | 角色权限评估器 | P1 | ✅ 已完成 |
+| [`pkg/permission/config.go`](pkg/permission/config.go) | 权限配置加载器（支持规则+角色） | P1 | ✅ 已完成 |
+| [`pkg/permission/manager.go`](pkg/permission/manager.go) | 权限管理器主类 | P1 | ✅ 已完成 |
+| [`pkg/permission/evaluator.go`](pkg/permission/evaluator.go) | Evaluator 接口和 RuleEvaluator/RoleEvaluator 实现 | P1 | ✅ 已完成 |
+| [`pkg/permission/errors.go`](pkg/permission/errors.go) | 权限相关错误定义 | P2 | ✅ 已完成 |
+
+> **注意**：`context.go` 文件被取消，相关功能已整合到 `manager.go` 中。
 
 ### 2.2 修改文件列表
 
-| 文件 | 修改内容 | 优先级 |
-|------|----------|--------|
-| [`pkg/provider/provider.go`](pkg/provider/provider.go) | 扩展 StorageProvider 接口，新增 CheckPermission 方法 | P1 |
-| [`pkg/apperr/error.go`](pkg/apperr/error.go) | 新增权限错误码 CodePermission | P1 |
-| [`cmd/fs.go`](cmd/fs.go) | 在 cp 等操作中添加权限检查调用 | P1 |
-| [`cmd/root.go`](cmd/root.go) | 初始化权限管理器 | P2 |
-| [`pkg/config/config.go`](pkg/config/config.go) | 支持权限配置加载 | P2 |
+| 文件 | 修改内容 | 优先级 | 状态 |
+|------|----------|--------|------|
+| [`pkg/provider/provider.go`](pkg/provider/provider.go) | 扩展 StorageProvider 接口，新增 CheckPermission 方法 | P1 | ⏳ 待实施 |
+| [`pkg/apperr/error.go`](pkg/apperr/error.go) | 新增权限错误码 CodePermission | P1 | ✅ 已完成 |
+| [`cmd/fs.go`](cmd/fs.go) | 在 cp 等操作中添加权限检查调用 | P1 | ✅ 已完成 |
+| [`cmd/root.go`](cmd/root.go) | 初始化权限管理器 | P2 | ✅ 已完成 |
+| [`pkg/config/config.go`](pkg/config/config.go) | 支持权限配置加载 | P2 | ⏳ 待实施 |
 
 ---
 
@@ -513,20 +515,20 @@ func TestRule_OverridesRole() {
 ## 10. 实施检查清单
 
 ### 开发前
-- [ ] 确认混合方案设计
-- [ ] 定义角色模板
-- [ ] 明确优先级规则
+- [x] 确认混合方案设计
+- [x] 定义角色模板
+- [x] 明确优先级规则
 
 ### 开发中 (13 个文件)
-- [ ] Phase 0: types.go, rule.go, role.go, request.go, checker.go
-- [ ] Phase 1: engine.go, rbac.go
-- [ ] Phase 2: config.go, manager.go, errors.go
+- [x] Phase 0: types.go, rule.go, role.go, request.go, checker.go
+- [x] Phase 1: engine.go, rbac.go
+- [x] Phase 2: config.go, manager.go, errors.go
 - [ ] Phase 3: provider.go 扩展
-- [ ] Phase 4: error.go, fs.go
+- [x] Phase 4: error.go, fs.go
 
 ### 测试中
-- [ ] engine_test.go
-- [ ] rbac_test.go
+- [x] engine_test.go（基础测试已在 permission_test.go 中）
+- [x] rbac_test.go（基础测试已在 permission_test.go 中）
 - [ ] config_test.go
 - [ ] manager_test.go
 - [ ] 集成测试
@@ -541,15 +543,77 @@ func TestRule_OverridesRole() {
 ## 11. 实施顺序总结
 
 ```
-Phase 0: 基础类型 (2.5h)    → types, rule, role, request, checker
-Phase 1: 核心引擎 (3h)      → engine, rbac  
-Phase 2: 配置管理 (2.5h)    → config, manager, errors
-Phase 3: Provider 接口 (0.5h) → provider.go 扩展
-Phase 4: CLI 集成 (1.5h)    → error.go, fs.go
-Phase 5: 初始化 (1h)        → root.go, config.go
+Phase 0: 基础类型 (2.5h)    → types, rule, role, request, checker  ✅ 已完成
+Phase 1: 核心引擎 (3h)      → engine, rbac                         ✅ 已完成
+Phase 2: 配置管理 (2.5h)    → config, manager, errors              ✅ 已完成
+Phase 3: Provider 接口 (0.5h) → provider.go 扩展                   ⏳ 待实施
+Phase 4: CLI 集成 (1.5h)    → error.go, fs.go                      ✅ 已完成
+Phase 5: 初始化 (1h)        → root.go, config.go                   ✅ 已完成（root.go）
 
 总计: 约 11 小时
 ```
+
+---
+
+## 12. 实施进度追踪
+
+> **实施时间**：2026-04
+> **最后更新**：2026-04-15
+
+### 12.1 阶段完成状态
+
+| 阶段 | 名称 | 状态 | 完成时间 |
+|------|------|------|----------|
+| 阶段 0 | 基础类型定义 | ✅ 已完成 | 2026-04 |
+| 阶段 1 | RBAC 核心 | ✅ 已完成 | 2026-04 |
+| 阶段 2 | 规则引擎 | ✅ 已完成 | 2026-04 |
+| 阶段 3 | Manager 集成 | ✅ 已完成 | 2026-04 |
+| 阶段 4 | 命令行集成 | ✅ 已完成 | 2026-04 |
+| 阶段 5 | 测试验证 | ⏳ 部分完成 | 进行中 |
+
+### 12.2 文件创建状态
+
+#### 新建文件（pkg/permission/）
+
+| 文件 | 状态 | 备注 |
+|------|------|------|
+| [`types.go`](pkg/permission/types.go) | ✅ 已完成 | Permission、Effect、RoleType 类型定义 |
+| [`rule.go`](pkg/permission/rule.go) | ✅ 已完成 | Rule、Policy、RuleMatchConditions 结构 |
+| [`role.go`](pkg/permission/role.go) | ✅ 已完成 | Role、RoleBinding、RoleConditions 结构 |
+| [`request.go`](pkg/permission/request.go) | ✅ 已完成 | Request、Result 结构 |
+| [`checker.go`](pkg/permission/checker.go) | ✅ 已完成 | PermissionChecker 接口 |
+| [`engine.go`](pkg/permission/engine.go) | ✅ 已完成 | 规则匹配引擎 |
+| [`rbac.go`](pkg/permission/rbac.go) | ✅ 已完成 | 角色权限评估器 |
+| [`config.go`](pkg/permission/config.go) | ✅ 已完成 | YAML 配置加载器 |
+| [`manager.go`](pkg/permission/manager.go) | ✅ 已完成 | 权限管理器主类 |
+| [`evaluator.go`](pkg/permission/evaluator.go) | ✅ 已完成 | Evaluator 接口和实现（新增） |
+| [`errors.go`](pkg/permission/errors.go) | ✅ 已完成 | 权限错误定义 |
+
+#### 修改文件
+
+| 文件 | 状态 | 修改内容 |
+|------|------|----------|
+| [`cmd/fs.go`](cmd/fs.go) | ✅ 已完成 | 集成权限检查调用 |
+| [`cmd/root.go`](cmd/root.go) | ✅ 已完成 | 添加配置加载初始化 |
+| [`pkg/apperr/error.go`](pkg/apperr/error.go) | ✅ 已完成 | 新增权限错误码 |
+
+### 12.3 测试覆盖
+
+| 测试文件 | 状态 | 覆盖内容 |
+|----------|------|----------|
+| [`permission_test.go`](pkg/permission/permission_test.go) | ✅ 已完成 | 基础单元测试 |
+| engine_test.go | ⏳ 待补充 | 规则匹配详细测试 |
+| rbac_test.go | ⏳ 待补充 | 角色权限评估详细测试 |
+| config_test.go | ⏳ 待补充 | 配置解析测试 |
+| manager_test.go | ⏳ 待补充 | 完整流程测试 |
+
+### 12.4 待完成项
+
+1. **Provider 接口扩展**：`pkg/provider/provider.go` 添加 `CheckPermission` 方法
+2. **配置文件支持**：`pkg/config/config.go` 支持权限配置加载
+3. **完善测试**：补充 engine、rbac、config、manager 的详细测试
+4. **集成测试**：端到端权限控制测试
+5. **文档更新**：用户文档和配置示例
 
 ---
 

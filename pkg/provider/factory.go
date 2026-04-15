@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/geekjourneyx/agent-fs/pkg/config"
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/config"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 // ConfiguredProviderFactory creates a provider from config

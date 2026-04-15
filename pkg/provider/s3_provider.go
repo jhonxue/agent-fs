@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	smithy "github.com/aws/smithy-go"
 
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 // S3CompatibleProvider implements StorageProvider for S3-compatible cloud storage

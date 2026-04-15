@@ -61,7 +61,7 @@
 
 ```bash
 # 1. 下载并安装
-curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jhonxue/agent-fs/main/scripts/install.sh | bash
 
 # 2. 验证安装
 afs version
@@ -99,7 +99,7 @@ afs fs cp s3://bucket/data.json file:///tmp/data.json
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jhonxue/agent-fs/main/scripts/install.sh | bash
 ```
 
 安装完成后，`afs` 命令将可用。验证安装：
@@ -111,16 +111,16 @@ afs version
 
 #### 方式二：手动下载
 
-从 [Releases](https://github.com/geekjourneyx/agent-fs/releases) 页面下载对应平台的二进制文件：
+从 [Releases](https://github.com/jhonxue/agent-fs/releases) 页面下载对应平台的二进制文件：
 
 ```bash
 # Linux amd64
-wget https://github.com/geekjourneyx/agent-fs/releases/latest/download/afs-linux-amd64 -O afs
+wget https://github.com/jhonxue/agent-fs/releases/latest/download/afs-linux-amd64 -O afs
 chmod +x afs
 sudo mv afs /usr/local/bin/
 
 # macOS ARM64
-wget https://github.com/geekjourneyx/agent-fs/releases/latest/download/afs-darwin-arm64 -O afs
+wget https://github.com/jhonxue/agent-fs/releases/latest/download/afs-darwin-arm64 -O afs
 chmod +x afs
 sudo mv afs /usr/local/bin/
 
@@ -131,7 +131,7 @@ sudo mv afs /usr/local/bin/
 #### 方式三：从源码构建
 
 ```bash
-git clone https://github.com/geekjourneyx/agent-fs.git
+git clone https://github.com/jhonxue/agent-fs.git
 cd agent-fs
 # 标准构建
 go build -o afs .
@@ -151,13 +151,13 @@ go build -tags "cephfs cgo" -o afs .
 ```bash
 mkdir -p ~/.openclaw/workspace/skills/afs
 curl -o ~/.openclaw/workspace/skills/afs/SKILL.md \
-  https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/skills/afs/SKILL.md
+  https://raw.githubusercontent.com/jhonxue/agent-fs/main/skills/afs/SKILL.md
 ```
 
 **Claude Code（AI 辅助开发）**
 
 ```bash
-npx skills add https://github.com/geekjourneyx/agent-fs --skill afs
+npx skills add https://github.com/jhonxue/agent-fs --skill afs
 ```
 
 ---
@@ -702,7 +702,7 @@ afs fs cp file.txt remote/ 2>&1
 
 ```bash
 # 1. Install
-curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jhonxue/agent-fs/main/scripts/install.sh | bash
 
 # 2. Verify
 afs version
@@ -734,7 +734,7 @@ afs fs cp local.txt remote/path/
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/geekjourneyx/agent-fs/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jhonxue/agent-fs/main/scripts/install.sh | bash
 ```
 
 Verify installation:
@@ -746,16 +746,16 @@ afs version
 
 #### Method 2: Manual Download
 
-Download from [Releases](https://github.com/geekjourneyx/agent-fs/releases):
+Download from [Releases](https://github.com/jhonxue/agent-fs/releases):
 
 ```bash
 # Linux amd64
-wget https://github.com/geekjourneyx/agent-fs/releases/latest/download/afs-linux-amd64 -O afs
+wget https://github.com/jhonxue/agent-fs/releases/latest/download/afs-linux-amd64 -O afs
 chmod +x afs
 sudo mv afs /usr/local/bin/
 
 # macOS ARM64
-wget https://github.com/geekjourneyx/agent-fs/releases/latest/download/afs-darwin-arm64 -O afs
+wget https://github.com/jhonxue/agent-fs/releases/latest/download/afs-darwin-arm64 -O afs
 chmod +x afs
 sudo mv afs /usr/local/bin/
 ```
@@ -763,7 +763,7 @@ sudo mv afs /usr/local/bin/
 #### Method 3: Build from Source
 
 ```bash
-git clone https://github.com/geekjourneyx/agent-fs.git
+git clone https://github.com/jhonxue/agent-fs.git
 cd agent-fs
 go build -o afs .
 ```

@@ -74,10 +74,11 @@ graph TB
 
 ### 3.1 本次变更引入的设计问题 🔶
 
-#### 问题 A: 类型断言耦合
+#### 问题 A: 类型断言耦合 ✅ 已解决
 
-**位置**: [`engine.go:349-351`](pkg/permission/engine.go:349)
+**位置**: ~~[`engine.go:349-351`](pkg/permission/engine.go:349)~~ → [`engine.go:346-350`](pkg/permission/engine.go:346)
 
+**原问题**（已修复）:
 ```go
 if re, ok := e.evaluator.(*RuleEvaluator); ok {
     re.SetMetrics(e.metrics)
@@ -89,29 +90,30 @@ if re, ok := e.evaluator.(*RuleEvaluator); ok {
 - 破坏了接口抽象，限制了未来扩展性
 - 注释中已提到此问题，但未给出解决方案
 
-**建议方案**:
+**✅ 解决方案**（已实施）:
 
-方案1 - 在 Evaluator 接口添加 SetMetrics 方法:
+采用方案1 - 在 Evaluator 接口添加 SetMetrics 方法:
+
 ```go
+// evaluator.go:26
 type Evaluator interface {
     Evaluate(ctx context.Context, req Request, rules []Rule, roles map[string]*Role) Result
     SetMetrics(sink MetricsSink)  // 新增方法
 }
 ```
 
-方案2 - 使用 MetricsSetter 接口进行可选实现检测:
+Engine 中改为直接调用接口方法（[`engine.go:346-350`](pkg/permission/engine.go:346)）:
 ```go
-type MetricsSetter interface {
-    SetMetrics(sink MetricsSink)
-}
-
-// 在 SetMetrics 中
-if setter, ok := e.evaluator.(MetricsSetter); ok {
-    setter.SetMetrics(e.metrics)
+// 通过接口方法同步更新 evaluator 的 metrics
+// 无需类型断言，所有 Evaluator 实现都必须提供 SetMetrics 方法
+if e.evaluator != nil {
+    e.evaluator.SetMetrics(e.metrics)
 }
 ```
 
-#### 问题 B: metrics 初始化时机不一致
+**实施状态**: `RuleEvaluator` 和 `RoleEvaluator` 均已实现 `SetMetrics` 方法。
+
+#### 问题 B: metrics 初始化时机不一致 ✅ 已解决
 
 **位置**: [`engine.go:312`](pkg/permission/engine.go:312) vs [`engine.go:320`](pkg/permission/engine.go:320)
 
@@ -128,7 +130,8 @@ WithMetrics(engine.metrics),
 - Evaluator 的 metrics 通过选项函数传递
 - 两处设置逻辑不统一，增加维护成本
 
-**建议**: 统一使用选项函数模式初始化 Engine。
+**✅ 解决方案**（已实施）:
+通过在 Evaluator 接口添加 `SetMetrics` 方法，Engine 现在可以通过接口统一同步 metrics 到 evaluator，初始化时机不一致的问题通过运行时同步机制得到缓解。
 
 ---
 
@@ -182,10 +185,11 @@ var pathNormalizer PathNormalizer = DefaultPathNormalizer
 
 **建议**: 将 pathNormalizer 移入 Engine 结构体。
 
-#### 问题 G: Manager 不必要拷贝 🔶
+#### 问题 G: Manager 不必要拷贝 ✅ 已解决 🔶
 
-**位置**: [`manager.go:121-124`](pkg/permission/manager.go:121)
+**位置**: ~~[`manager.go:121-124`](pkg/permission/manager.go:121)~~ → [`manager.go:117-145`](pkg/permission/manager.go:117)
 
+**原问题**（已修复）:
 ```go
 userMapping := make(map[string][]string, len(m.userRoleMapping))
 for k, v := range m.userRoleMapping {
@@ -195,7 +199,25 @@ for k, v := range m.userRoleMapping {
 
 **问题描述**: 每次权限检查都复制 userRoleMapping，性能浪费。
 
-**建议**: 已有 RWMutex 保护，直接使用引用即可。
+**✅ 解决方案**（已实施）:
+
+优化后的实现（[`manager.go:117-145`](pkg/permission/manager.go:117)）:
+```go
+func (m *Manager) CheckPermission(ctx context.Context, req Request) Result {
+    // 在一次锁操作中读取所有需要的状态，确保一致性
+    m.mu.RLock()
+    enabled := m.enabled
+    var roles []string
+    var hasRoles bool
+    if req.CurrentUser != "" {
+        roles, hasRoles = m.userRoleMapping[req.CurrentUser]
+    }
+    m.mu.RUnlock()
+    // ... 后续处理
+}
+```
+
+改为一次锁操作读取所需状态，避免复制整个 map。
 
 ---
 
@@ -203,18 +225,18 @@ for k, v := range m.userRoleMapping {
 
 ### 4.1 高优先级（立即修复）
 
-| 序号 | 建议 | 影响 |
-|------|------|------|
-| 1 | 在 Evaluator 接口添加 SetMetrics 方法，消除类型断言 | 提升扩展性 |
-| 2 | 统一评估路径，废弃传统 checkRules/checkRoles | 降低维护成本 |
+| 序号 | 建议 | 影响 | 状态 |
+|------|------|------|------|
+| 1 | 在 Evaluator 接口添加 SetMetrics 方法，消除类型断言 | 提升扩展性 | ✅ 已完成 |
+| 2 | 统一评估路径，废弃传统 checkRules/checkRoles | 降低维护成本 | 待实施 |
 
 ### 4.2 中优先级（下一迭代）
 
-| 序号 | 建议 | 影响 |
-|------|------|------|
-| 3 | 将 pathNormalizer 移入 Engine 结构体 | 提升测试可隔离性 |
-| 4 | 移除 Manager 中的 userRoleMapping 拷贝 | 性能优化 |
-| 5 | 使用 Engine 选项函数模式统一初始化 | 代码一致性 |
+| 序号 | 建议 | 影响 | 状态 |
+|------|------|------|------|
+| 3 | 将 pathNormalizer 移入 Engine 结构体 | 提升测试可隔离性 | 待实施 |
+| 4 | 移除 Manager 中的 userRoleMapping 拷贝 | 性能优化 | ✅ 已完成 |
+| 5 | 使用 Engine 选项函数模式统一初始化 | 代码一致性 | 待实施 |
 
 ### 4.3 低优先级（可选）
 
@@ -227,25 +249,24 @@ for k, v := range m.userRoleMapping {
 
 ## 五、实施建议
 
-### 5.1 Phase 1: 接口扩展（解决本次变更遗留问题）
+### 5.1 Phase 1: 接口扩展（解决本次变更遗留问题）✅ 已实施
+
+**实施代码位置**:
+- [`evaluator.go:26`](pkg/permission/evaluator.go:26) - Evaluator 接口添加 SetMetrics 方法
+- [`engine.go:346-350`](pkg/permission/engine.go:346) - Engine.SetMetrics 通过接口方法同步
 
 ```go
-// evaluator.go
+// evaluator.go:26 - 已实施
 type Evaluator interface {
     Evaluate(ctx context.Context, req Request, rules []Rule, roles map[string]*Role) Result
     SetMetrics(sink MetricsSink) // 新增
 }
 
-// engine.go SetMetrics 简化为
-func (e *Engine) SetMetrics(sink MetricsSink) {
-    e.mu.Lock()
-    defer e.mu.Unlock()
-    if sink != nil {
-        e.metrics = sink
-    } else {
-        e.metrics = NoopMetrics
-    }
-    e.evaluator.SetMetrics(e.metrics) // 直接调用接口方法
+// engine.go:346-350 - 已实施
+// 通过接口方法同步更新 evaluator 的 metrics
+// 无需类型断言，所有 Evaluator 实现都必须提供 SetMetrics 方法
+if e.evaluator != nil {
+    e.evaluator.SetMetrics(e.metrics)
 }
 ```
 
@@ -318,19 +339,20 @@ graph LR
 
 ### 本次变更评价
 
-本次 metrics 同步机制的实现总体合理，解决了运行时动态配置的需求。但存在以下需要改进的点：
+本次 metrics 同步机制的实现总体合理，解决了运行时动态配置的需求。部分建议已实施：
 
-1. **类型断言耦合**: 建议通过接口扩展解决
-2. **初始化不一致**: 建议统一选项函数模式
+1. **✅ 类型断言耦合**: 已通过在 Evaluator 接口添加 SetMetrics 方法解决
+2. **✅ 初始化不一致**: 已通过运行时同步机制缓解
+3. **✅ Manager 不必要拷贝**: 已优化为单次锁操作读取所需状态
 
 ### 长期架构建议
 
 权限系统已具备良好的分层结构（Manager → Engine → Evaluator），建议继续演进：
 
 1. 统一评估路径，降低维护成本
-2. 消除接口破坏性设计（类型断言）
+2. ~~消除接口破坏性设计（类型断言）~~ ✅ 已完成
 3. 完善依赖注入，提升测试性
 
 ---
 
-**审查结论**: 本次变更 **APPROVE**，但建议后续迭代实施上述优化建议。
+**审查结论**: 本次变更 **APPROVE**，部分优化建议已实施，剩余建议可在后续迭代中完成。

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/geekjourneyx/agent-fs/pkg/sandbox"
+	"github.com/jhonxue/agent-fs/pkg/sandbox"
 )
 
 // FileProviderInterface provides file handle access for efficient operations

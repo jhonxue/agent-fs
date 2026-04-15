@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/geekjourneyx/agent-fs/cmd"
-	"github.com/geekjourneyx/agent-fs/pkg/apperr"
-	"github.com/geekjourneyx/agent-fs/pkg/output"
+	"github.com/jhonxue/agent-fs/cmd"
+	"github.com/jhonxue/agent-fs/pkg/apperr"
+	"github.com/jhonxue/agent-fs/pkg/output"
 )
 
 // Version information (set via ldflags during build)

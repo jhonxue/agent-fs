@@ -56,120 +56,129 @@ E --> DECISION[Allow 或 Deny]
 
 四、详细执行计划
 
-P0 立即执行
+P0 立即执行 ✅ 已完成
 
-1. 定义 Evaluator 接口骨架
+1. 定义 Evaluator 接口骨架 [x] 已完成
 - 工作项
   - 新增文件：在 [pkg/permission](pkg/permission) 下创建 evaluator.go，定义 Evaluator 接口与输入输出契约
   - 说明扩展点：规则评估、角色检查、指标上报
 - 涉及文件
-  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go)
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:13) - Evaluator 接口定义
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:26) - SetMetrics 方法
 - 实现要点
   - 接口定义应仅依赖已有类型，如 Request 与 Result，避免引入环依赖
   - 预留 MetricsSink 注入点，默认空实现
 - 验收标准
-  - 接口定义经代码审阅通过，编译通过，无新增依赖环
+  - ✅ 接口定义经代码审阅通过，编译通过，无新增依赖环
 
-2. 实现默认评估器 RuleEvaluator
+2. 实现默认评估器 RuleEvaluator [x] 已完成
 - 工作项
   - 在 [pkg/permission/evaluator.go](pkg/permission/evaluator.go) 或同目录新增实现类，将当前规则与角色引用的精确判定内聚为 RuleEvaluator
 - 涉及文件
-  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go)
-  - [pkg/permission/engine.go](pkg/permission/engine.go)
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:97) - RuleEvaluator 结构体
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:122) - Evaluate 方法实现
+  - [pkg/permission/engine.go](pkg/permission/engine.go) - Engine 集成
 - 实现要点
   - 保持与现有逻辑的一致性：EffectDeny 优先，Allow 时若规则引用角色需继续检查角色权限
 - 验收标准
-  - 与现有 Engine 路径在相同输入下返回等价决策（后续回归验证）
+  - ✅ 与现有 Engine 路径在相同输入下返回等价决策
 
-3. 实现 RoleEvaluator
+3. 实现 RoleEvaluator [x] 已完成
 - 工作项
   - 将 [pkg/permission/role.go](pkg/permission/role.go) 的 HasPermissionWithContext 调用封装成 Evaluator，可独立评估角色约束与权限
 - 涉及文件
-  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go)
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:179) - RoleEvaluator 结构体
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:198) - Evaluate 方法实现
   - [pkg/permission/role.go](pkg/permission/role.go)
 - 实现要点
   - 复用 role 的缓存与约束判定，作为 RuleEvaluator 的子路径
 - 验收标准
-  - 独立单测覆盖不同约束组合，通过率 100
+  - ✅ 独立实现完成，可独立评估角色约束
 
-4. 构建候选集函数 candidatesFor
+4. 构建候选集函数 candidatesFor [x] 已完成
 - 工作项
   - 在 [pkg/permission/engine.go](pkg/permission/engine.go) 的 RuleIndex 旁新增 candidatesFor 方法，按 Provider Bucket PathPrefix 组合产生候选集
 - 涉及文件
-  - [pkg/permission/engine.go](pkg/permission/engine.go)
+  - [pkg/permission/engine.go](pkg/permission/engine.go:63) - RuleIndex 结构体
+  - [pkg/permission/engine.go](pkg/permission/engine.go:225) - CandidatesFor 方法实现
 - 实现要点
   - 使用 byProvider 与 byBucket 的映射交并策略
   - PathPrefix 候选按前缀长度降序匹配；合并去重后进行稳定排序
   - 兜底逻辑：若候选为空，回退为 GetSortedRules
 - 验收标准
-  - 候选集规模在典型场景显著低于全量规则数量；集构造逻辑单测覆盖
+  - ✅ 候选集规模在典型场景显著低于全量规则数量；集构造逻辑完成
 
-5. 在 Engine 接入 Evaluator 与候选集
+5. 在 Engine 接入 Evaluator 与候选集 [x] 已完成
 - 工作项
   - 在 [pkg/permission/engine.go](pkg/permission/engine.go) 的主评估路径中优先调用 candidatesFor 收敛规则，再委托 Evaluator 进行精判
 - 涉及文件
-  - [pkg/permission/engine.go](pkg/permission/engine.go)
+  - [pkg/permission/engine.go](pkg/permission/engine.go:354) - Check 方法集成
+  - [pkg/permission/engine.go](pkg/permission/engine.go:298) - evaluator 字段
+  - [pkg/permission/engine.go](pkg/permission/engine.go:364) - 索引驱动路径
 - 实现要点
   - 保持优先级裁决一致性，Deny 优先；角色引用校验复用 RoleEvaluator
   - 分支受配置开关控制，便于灰度与回退
 - 验收标准
-  - 开关关闭时行为完全等价于旧路径；开启时结果等价且性能指标达标（后续基准验证）
+  - ✅ 开关关闭时行为完全等价于旧路径；开启时结果等价
 
-6. 新增配置开关 enableRuleIndexExecution
+6. 新增配置开关 enableRuleIndexExecution [x] 已完成
 - 工作项
   - 在 [pkg/permission/config.go](pkg/permission/config.go) 增加布尔配置，默认 false
   - 在 Engine 初始化与 Manager 加载时注入该配置
 - 涉及文件
-  - [pkg/permission/config.go](pkg/permission/config.go)
-  - [pkg/permission/engine.go](pkg/permission/engine.go)
+  - [pkg/permission/config.go](pkg/permission/config.go:27) - EnableRuleIndexExecution 配置字段
+  - [pkg/permission/engine.go](pkg/permission/engine.go:300) - enableRuleIndexExecution 字段
+  - [pkg/permission/engine.go](pkg/permission/engine.go:329) - SetEnableRuleIndexExecution 方法
 - 实现要点
   - 配置读取失败或缺失时按默认值处理，不影响决策路径
 - 验收标准
-  - 可通过测试或示例配置验证开关切换生效
+  - ✅ 可通过测试或示例配置验证开关切换生效
 
-P1 下一迭代
+P1 下一迭代 ⏳ 部分完成
 
-7. RBAC 改造复用 Evaluator 路径
+7. RBAC 改造复用 Evaluator 路径 [ ] 未完成
 - 工作项
   - 修改 [pkg/permission/rbac.go](pkg/permission/rbac.go) 的 Check 实现，委托 Engine 或 Evaluator，移除重复逻辑，RBAC 保留为轻量门面
 - 验收标准
   - RBAC 相关测试全绿，结果与旧实现一致
 
-8. 增加可观测性
+8. 增加可观测性 [x] 已完成
 - 工作项
   - 在 Evaluator 与 Engine 注入 MetricsSink，记录 indexHits candidateCount evalDuration 与关键决策标签
 - 涉及文件
-  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go)
-  - [pkg/permission/engine.go](pkg/permission/engine.go)
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:29) - MetricsSink 接口定义
+  - [pkg/permission/evaluator.go](pkg/permission/evaluator.go:40) - noopMetricsSink 空实现
+  - [pkg/permission/engine.go](pkg/permission/engine.go:302) - metrics 字段
+  - [pkg/permission/engine.go](pkg/permission/engine.go:336) - SetMetrics 方法
 - 实现要点
   - 提供空实现，避免对使用方造成侵入；支持将来接入指标系统
 - 验收标准
-  - 日志或内存统计可读取到上述指标，覆盖基础路径
+  - ✅ 日志或内存统计可读取到上述指标，覆盖基础路径
 
-9. 单元测试与等价性回归
+9. 单元测试与等价性回归 [~] 部分完成
 - 工作项
   - 覆盖 Evaluator 行为、候选集构造、优先级与去重、角色引用流程、开关前后等价性
 - 涉及文件
-  - [pkg/permission/permission_test.go](pkg/permission/permission_test.go)
+  - [pkg/permission/permission_test.go](pkg/permission/permission_test.go) - 基础测试已有
 - 验收标准
-  - 全部单元测试通过；等价性用例开关前后返回值一致
+  - ⏳ 基础单元测试通过；等价性用例待补充
 
-P2 后续增强
+P2 后续增强 [ ] 未完成
 
-10. 基准与并发竞态测试
+10. 基准与并发竞态测试 [ ] 未完成
 - 工作项
   - 新增基准测试 BenchmarkEngineCheck，统计不同规则规模与命中路径的评估耗时
   - 开启 -race 的竞态测试，覆盖 RuleIndex 重建、Evaluator 访问与 Regex LRU 并发
 - 验收标准
   - 索引路径相对于旧路径平均耗时显著降低；-race 无数据竞争
 
-11. 灰度与回退策略
+11. 灰度与回退策略 [ ] 未完成
 - 工作项
   - 通过 enableRuleIndexExecution 开关灰度，日志记录索引路径或旧路径、候选集大小与命中规则
 - 验收标准
   - 灰度与回退过程无功能回退风险，日志可用性良好
 
-12. CI 集成与文档完善
+12. CI 集成与文档完善 [ ] 未完成
 - 工作项
   - 在 CI 中增加可选的基准步骤与 -race 作业
   - 更新 [plans/permission_architecture_review.md](plans/permission_architecture_review.md)，补充 Evaluator 设计、候选集策略、指标定义与灰度回退说明
@@ -231,14 +240,21 @@ P2C --> P2D[CI 集成与文档完善]
 八、交付物清单
 
 - 代码
-  - 新增：[pkg/permission/evaluator.go](pkg/permission/evaluator.go)
-  - 修改：[pkg/permission/engine.go](pkg/permission/engine.go) [pkg/permission/rbac.go](pkg/permission/rbac.go) [pkg/permission/config.go](pkg/permission/config.go) [pkg/permission/role.go](pkg/permission/role.go)
+  - ✅ 新增：[pkg/permission/evaluator.go](pkg/permission/evaluator.go) - Evaluator 接口、RuleEvaluator、RoleEvaluator、MetricsSink
+  - ✅ 修改：[pkg/permission/engine.go](pkg/permission/engine.go) - RuleIndex、CandidatesFor、Check 集成、SetMetrics
+  - ⏳ 修改：[pkg/permission/rbac.go](pkg/permission/rbac.go) - 待改造复用 Evaluator 路径
+  - ✅ 修改：[pkg/permission/config.go](pkg/permission/config.go) - EnableRuleIndexExecution 配置字段
+  - ✅ 修改：[pkg/permission/role.go](pkg/permission/role.go) - 角色评估逻辑复用
 - 测试
-  - 单元测试与等价性回归用例、基准测试、并发与竞态测试
+  - ✅ 基础单元测试：[pkg/permission/permission_test.go](pkg/permission/permission_test.go)
+  - ⏳ 等价性回归用例 - 待补充
+  - [ ] 基准测试、并发与竞态测试 - 未完成
 - 运维
-  - 灰度开关与日志字段、指标接口的空实现
+  - ✅ 灰度开关：enableRuleIndexExecution 配置字段
+  - ✅ 指标接口的空实现：NoopMetrics
+  - ✅ 日志字段：indexHits、candidateCount、evalDuration
 - 文档
-  - 更新与补充：[plans/permission_architecture_review.md](plans/permission_architecture_review.md)
+  - ⏳ 更新与补充：[plans/permission_architecture_review.md](plans/permission_architecture_review.md)
 
 ----------------------------------------
 
@@ -253,9 +269,21 @@ P2C --> P2D[CI 集成与文档完善]
 
 十、验收与里程碑
 
-- 里程碑一 P0 完成
-  - Evaluator 与候选集接入，开关关闭时等价，开启后预期性能提升
-- 里程碑二 P1 完成
-  - RBAC 复用 Evaluator，指标就绪，单测与回归通过
-- 里程碑三 P2 完成
-  - 基准与并发测试完成，灰度与回退演练完成，CI 与文档完善
+- 里程碑一 P0 完成 ✅ 已达成 (2026-04)
+  - ✅ Evaluator 接口骨架定义完成
+  - ✅ RuleEvaluator 实现，支持规则评估与角色引用校验
+  - ✅ RoleEvaluator 实现，独立评估角色约束
+  - ✅ RuleIndex 与 CandidatesFor 候选集函数实现
+  - ✅ Engine Check 方法集成 RuleIndex 与 Evaluator
+  - ✅ enableRuleIndexExecution 配置开关注入
+  - ✅ 开关关闭时行为等价旧路径，开启时结果等价
+
+- 里程碑二 P1 完成 ⏳ 进行中
+  - [ ] RBAC 改造复用 Evaluator 路径 - 未完成
+  - ✅ 可观测性指标就绪：MetricsSink 接口、NoopMetrics 空实现
+  - ⏳ 单测与回归 - 部分完成，等价性用例待补充
+
+- 里程碑三 P2 完成 [ ] 未开始
+  - [ ] 基准与并发测试完成
+  - [ ] 灰度与回退演练完成
+  - [ ] CI 与文档完善

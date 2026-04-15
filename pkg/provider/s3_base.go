@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	smithy "github.com/aws/smithy-go"
 
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 // S3BaseProvider 包含所有 S3-compatible provider 的共用实现

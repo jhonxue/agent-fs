@@ -1,4 +1,4 @@
-module github.com/geekjourneyx/agent-fs
+module github.com/jhonxue/agent-fs
 
 go 1.24.0
 
@@ -10,6 +10,11 @@ require (
 	github.com/ceph/go-ceph v0.38.0 // For CephFS provider implementation
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.20.1
+)
+
+require (
+	github.com/aws/smithy-go v1.24.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -27,7 +32,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.7 // indirect
-	github.com/aws/smithy-go v1.24.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -42,5 +46,4 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/geekjourneyx/agent-fs/pkg/config"
-	"github.com/geekjourneyx/agent-fs/pkg/provider"
+	"github.com/jhonxue/agent-fs/pkg/config"
+	"github.com/jhonxue/agent-fs/pkg/provider"
 )
 
 // SupportedSchemes returns all URI schemes that have registered providers

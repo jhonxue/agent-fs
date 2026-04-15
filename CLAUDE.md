@@ -6,7 +6,7 @@
 
 - **项目名**: agent-fs
 - **CLI 名**: afs
-- **仓库**: https://github.com/geekjourneyx/agent-fs
+- **仓库**: https://github.com/jhonxue/agent-fs
 - **语言**: Go 1.24+
 - **框架**: Cobra + Viper
 - **核心依赖**: AWS SDK v2 (S3 协议)
@@ -80,7 +80,7 @@ if [ ! -f ~/go/bin/goimports ]; then
 fi
 
 go fmt ./...
-~/go/bin/goimports -local github.com/geekjourneyx/agent-fs -w .
+~/go/bin/goimports -local github.com/jhonxue/agent-fs -w .
 ```
 
 确保代码格式统一。
@@ -517,5 +517,5 @@ resolvedPath, err := sandbox.ResolveReadPath(userInput)
 - AWS SDK v2: https://github.com/aws/aws-sdk-go-v2
 - Cobra: https://github.com/spf13/cobra
 - Viper: https://github.com/spf13/viper
-- 项目参考: https://github.com/geekjourneyx/jina-cli
+- 项目参考: https://github.com/jhonxue/jina-cli
 

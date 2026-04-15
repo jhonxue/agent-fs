@@ -11,15 +11,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/geekjourneyx/agent-fs/pkg/apperr"
-	"github.com/geekjourneyx/agent-fs/pkg/cloud"
-	"github.com/geekjourneyx/agent-fs/pkg/config"
-	"github.com/geekjourneyx/agent-fs/pkg/output"
-	"github.com/geekjourneyx/agent-fs/pkg/permission"
-	"github.com/geekjourneyx/agent-fs/pkg/provider"
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
-	"github.com/geekjourneyx/agent-fs/pkg/sandbox"
-	"github.com/geekjourneyx/agent-fs/pkg/uri"
+	"github.com/jhonxue/agent-fs/pkg/apperr"
+	"github.com/jhonxue/agent-fs/pkg/cloud"
+	"github.com/jhonxue/agent-fs/pkg/config"
+	"github.com/jhonxue/agent-fs/pkg/output"
+	"github.com/jhonxue/agent-fs/pkg/permission"
+	"github.com/jhonxue/agent-fs/pkg/provider"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/sandbox"
+	"github.com/jhonxue/agent-fs/pkg/uri"
 )
 
 var (

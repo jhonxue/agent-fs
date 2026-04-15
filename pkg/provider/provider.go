@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/geekjourneyx/agent-fs/pkg/permission"
+	"github.com/jhonxue/agent-fs/pkg/permission"
 )
 
 // FileInfo represents metadata about a file or object

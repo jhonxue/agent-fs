@@ -3,7 +3,7 @@ package provider
 import (
 	"os"
 
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 // OSSProvider 通过嵌入 S3BaseProvider 实现 Alibaba Cloud OSS

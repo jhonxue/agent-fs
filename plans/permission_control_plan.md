@@ -835,3 +835,29 @@ func TestEngine_MatchPathPrefix(t *testing.T) {
 5. **完整的错误处理和日志审计**
 
 该方案可满足对覆盖、删除、复制、移动等危险操作的权限控制需求，同时保持系统的可扩展性和易用性。
+
+## 十二、实施状态说明
+
+本设计文档描述的是权限控制系统的设计目标和方案。详细实施进度请参考以下文档：
+
+### 相关文档链接
+
+| 文档 | 说明 |
+|------|------|
+| [`permission_control_implementation_plan.md`](plans/permission_control_implementation_plan.md) | 详细实施计划和进度追踪 |
+| [`permission_execution_plan.md`](plans/permission_execution_plan.md) | 执行计划和里程碑状态 |
+| [`permission_architecture_review.md`](plans/permission_architecture_review.md) | 架构审查和问题状态 |
+| [`permission_metrics_sync_architecture_review.md`](plans/permission_metrics_sync_architecture_review.md) | Metrics同步机制审查 |
+
+### 核心实施状态
+
+| 设计目标 | 实施状态 |
+|----------|----------|
+| 权限类型定义 | ✅ 已完成 (types.go) |
+| 规则引擎核心 | ✅ 已完成 (engine.go) |
+| RBAC 角色-权限映射 | ✅ 已完成 (rbac.go, role.go) |
+| Manager 集成层 | ✅ 已完成 (manager.go) |
+| Evaluator 评估接口 | ✅ 已完成 (evaluator.go) |
+| RuleIndex 索引优化 | ✅ 已完成 (engine.go RuleIndex) |
+| MetricsSink 可观测性 | ✅ 已完成 (evaluator.go MetricsSink) |
+| 单元测试覆盖 | ⏳ 部分完成 (permission_test.go) |

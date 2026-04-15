@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/geekjourneyx/agent-fs/pkg/apperr"
-	"github.com/geekjourneyx/agent-fs/pkg/output"
+	"github.com/jhonxue/agent-fs/pkg/apperr"
+	"github.com/jhonxue/agent-fs/pkg/output"
 )
 
 var configGlobal bool

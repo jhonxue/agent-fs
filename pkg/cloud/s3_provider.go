@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/geekjourneyx/agent-fs/pkg/apperr"
-	"github.com/geekjourneyx/agent-fs/pkg/s3client"
+	"github.com/jhonxue/agent-fs/pkg/apperr"
+	"github.com/jhonxue/agent-fs/pkg/s3client"
 )
 
 type S3CompatibleProvider struct {
