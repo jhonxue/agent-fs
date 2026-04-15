@@ -298,6 +298,8 @@ type Engine struct {
 	evaluator Evaluator
 	// 是否启用索引驱动的评估路径（灰度开关）
 	enableRuleIndexExecution bool
+	// 可观测性指标上报接口
+	metrics MetricsSink
 }
 
 // NewEngine 创建新的权限引擎
@@ -327,20 +329,72 @@ func (e *Engine) SetEnableRuleIndexExecution(enabled bool) {
 	e.enableRuleIndexExecution = enabled
 }
 
+// SetMetrics 设置可观测性指标上报接口
+func (e *Engine) SetMetrics(sink MetricsSink) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if sink != nil {
+		e.metrics = sink
+	} else {
+		e.metrics = NoopMetrics
+	}
+}
+
 // Check 执行权限检查
 func (e *Engine) Check(ctx context.Context, req Request) Result {
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+
+	// 确保 metrics 初始化
+	metrics := e.metrics
+	if metrics == nil {
+		metrics = NoopMetrics
+	}
 
 	// 0. 索引驱动路径（灰度开关）
 	if e.enableRuleIndexExecution && e.evaluator != nil {
 		candidates := e.ruleIndex.CandidatesFor(req)
+		candidateCount := len(candidates)
+
 		res := e.evaluator.Evaluate(ctx, req, candidates, e.roles)
+
+		// 记录索引命中情况（先保存结果，释放锁后再上报）
+		var indexHitLabels map[string]string
+		if res.MatchedRule != "" {
+			indexHitLabels = map[string]string{
+				"rule":   res.MatchedRule,
+				"result": "matched",
+			}
+		} else if res.Allowed {
+			// Allow 但无具体规则名（如角色检查通过）
+			indexHitLabels = map[string]string{
+				"result": "allowed_no_rule",
+			}
+		} else {
+			// 未命中任何规则，记录回退事件
+			indexHitLabels = map[string]string{
+				"result": "miss_fallback",
+			}
+		}
+
 		// 若命中具体规则（允许或拒绝），直接返回；否则继续角色检查与默认策略
 		if res.MatchedRule != "" || res.Allowed {
+			e.mu.RUnlock()
+			// 释放锁后再上报指标，避免阻塞权限检查
+			metrics.ObserveCandidateCount(map[string]string{
+				"path": "index_driven",
+			}, candidateCount)
+			metrics.ObserveIndexHits(indexHitLabels, 1)
 			return res
 		}
 		// 未命中任何规则，继续走角色与默认逻辑
+		e.mu.RUnlock()
+		// 释放锁后再上报指标
+		metrics.ObserveCandidateCount(map[string]string{
+			"path": "index_driven",
+		}, candidateCount)
+		metrics.ObserveIndexHits(indexHitLabels, 1)
+	} else {
+		e.mu.RUnlock()
 	}
 
 	// 1. 规则引擎检查（优先级最高）
